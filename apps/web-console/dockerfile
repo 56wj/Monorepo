@@ -1,0 +1,17 @@
+FROM docker.1ms.run/library/node:11
+
+WORKDIR /app
+
+# 依赖层与业务源码分离：修改源码时复用 node_modules 缓存。
+COPY package.json package-lock.json ./
+
+# lock 文件历史上固定到了镜像站，偶尔会返回校验值不同的 tarball。
+# 构建镜像时只替换下载域名，不改工作区中的 lock 文件。
+RUN sed -i 's#https://registry.npmmirror.com/#https://registry.npmjs.org/#g' package-lock.json \
+    && npm install --no-audit --no-fund
+
+COPY . .
+
+EXPOSE 9528
+
+CMD ["npm", "run", "dev"]

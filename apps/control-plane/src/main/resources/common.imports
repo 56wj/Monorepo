@@ -1,0 +1,2 @@
+org.springframework.web.client.RestTemplate
+org.springframework.web.socket.server.standard.ServerEndpointExporter

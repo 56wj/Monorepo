@@ -1,0 +1,43 @@
+# IDE and OS
+.DS_Store
+.idea/
+*.iml
+.vscode/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Java
+**/target/
+*.jar
+*.log
+
+# Python
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Node
+**/node_modules/
+**/dist/
+**/coverage/
+
+# Runtime artifacts and business data
+data/
+runtime/
+artifacts/
+*.sql
+*.xlsx
+*.xls
+*.jsonl
+
+!testdata/synthetic/**
+!contracts/**/*.json
+!services/solver-worker/export_template.xlsx

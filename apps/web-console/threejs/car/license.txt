@@ -1,0 +1,11 @@
+Model Information:
+* title:	Red Car
+* source:	https://sketchfab.com/3d-models/red-car-595228b5dda74defb25a767a04b3da0d
+* author:	Camay (https://sketchfab.com/Camay)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Red Car" (https://sketchfab.com/3d-models/red-car-595228b5dda74defb25a767a04b3da0d) by Camay (https://sketchfab.com/Camay) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

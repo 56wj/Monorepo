@@ -1,0 +1,11 @@
+Model Information:
+* title:	European Delivery Van
+* source:	https://sketchfab.com/3d-models/european-delivery-van-0b2f1ad95a79419f9a092420024d329c
+* author:	Evan Hiltz (https://sketchfab.com/evan.hiltz)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "European Delivery Van" (https://sketchfab.com/3d-models/european-delivery-van-0b2f1ad95a79419f9a092420024d329c) by Evan Hiltz (https://sketchfab.com/evan.hiltz) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

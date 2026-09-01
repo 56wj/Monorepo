@@ -1,0 +1,32 @@
+packing-python-api:
+  host: ${PYTHON_API_HOST:http://localhost}
+  port: ${PYTHON_API_PORT:5000}
+  route: /api
+  methods: GET
+  source_save_path: ${PACKING_DATA_DIR:/tmp/packing}/source/
+  result_save_path: ${PACKING_DATA_DIR:/tmp/packing}/result/
+  middle_save_path: ${PACKING_DATA_DIR:/tmp/packing}/middle/
+  push_save_path: ${PACKING_DATA_DIR:/tmp/packing}/push/
+  image_path: ${PACKING_DATA_DIR:/tmp/packing}/images/
+
+spring:
+  application:
+    name: packing-control-plane
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:db_kindlead}?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:packing}
+    password: ${MYSQL_PASSWORD:change-me}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+server:
+  port: ${SERVER_PORT:8101}
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    root: INFO
+  file:
+    name: ${LOG_FILE:/tmp/packing/logs/control-plane.log}

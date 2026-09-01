@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.hdu.packing_service.mapper.TaskMapper">
+    <select id="list" resultType="cn.edu.hdu.packing_service.pojo.dto.TaskDTO">
+        select t.* , u.username from ctask t , user u
+        <where>
+            <if test="type != null and type != ''">
+                type = #{type}
+            </if>
+
+            <if test="orderId != null and orderId != ''">
+                AND order_id LIKE CONCAT('%', #{orderId}, '%')
+            </if>
+
+            <if test="startTime != null and startTime != ''">
+                AND t.create_time &gt;= #{startTime}
+            </if>
+
+            <if test="endTime != null and endTime != ''">
+                AND t.create_time &lt;= #{endTime}
+            </if>
+
+
+            <if test="state != null">
+                and state = #{state}
+            </if>
+
+            and create_user = #{id}
+            and t.create_user = u.id
+
+            ORDER BY create_time DESC
+        </where>
+    </select>
+</mapper>

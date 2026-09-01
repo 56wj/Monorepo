@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1120" viewBox="0 0 1800 1120">
+  <style>
+    text { font-family: 'PingFang SC','Heiti SC','Microsoft YaHei',sans-serif; fill:#243447 }
+    .title { font-size:42px; font-weight:700 }
+    .h { font-size:27px; font-weight:700 }
+    .body { font-size:21px }
+    .small { font-size:18px }
+    .card { fill:#fff; stroke:#cbd8e6; stroke-width:2; rx:20 }
+    .dash { stroke:#5d7c99; stroke-dasharray:8 6; stroke-width:2; fill:none }
+    .arrow { stroke:#e05a47; stroke-width:3; fill:none; marker-end:url(#arrow) }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#e05a47"/></marker>
+  </defs>
+  <rect width="1800" height="1120" fill="#f5f8fb"/>
+  <text x="70" y="72" class="title">卷膜 → 托盘 → 车厢：本项目的装载读法</text>
+  <text x="70" y="110" class="body">示例来自结果：35×680×4000×5(*2)；托盘 1.10×1.10×0.15 m；40 尺大柜 11.89×2.32×2.50 m</text>
+
+  <!-- panel 1 -->
+  <rect class="card" x="55" y="155" width="500" height="840"/>
+  <text x="85" y="210" class="h">1. 一卷膜：三个规格不是三个外形边</text>
+  <text x="85" y="248" class="body">35 × 680 × 4000 = 厚度 × 宽度 × 长度</text>
+  <ellipse cx="270" cy="405" rx="120" ry="45" fill="#acd8f3" stroke="#397aab" stroke-width="3"/>
+  <path d="M150 405 L150 610 C150 670 390 670 390 610 L390 405" fill="#8bc6ea" stroke="#397aab" stroke-width="3"/>
+  <ellipse cx="270" cy="610" rx="120" ry="45" fill="#72b8e2" stroke="#397aab" stroke-width="3"/>
+  <ellipse cx="270" cy="405" rx="38" ry="14" fill="#f4f6f7" stroke="#397aab" stroke-width="3"/>
+  <line x1="125" y1="405" x2="125" y2="610" class="arrow"/><line x1="125" y1="610" x2="125" y2="405" class="arrow"/>
+  <text x="88" y="520" class="body" transform="rotate(-90 88 520)">宽度 680 mm（卷的轴向长度）</text>
+  <line x1="150" y1="715" x2="390" y2="715" class="arrow"/><line x1="390" y1="715" x2="150" y2="715" class="arrow"/>
+  <text x="170" y="752" class="body">直径 D（系统计算）</text>
+  <text x="85" y="810" class="body">• 厚度 35：膜本身单层厚度</text>
+  <text x="85" y="846" class="body">• 宽度 680 mm：立放时决定货物高度</text>
+  <text x="85" y="882" class="body">• 长度 4000 m：整卷展开长度</text>
+  <text x="85" y="925" class="small">长度与厚度、纸管共同决定直径 D；</text>
+  <text x="85" y="952" class="small">它不是“托盘长度”。</text>
+
+  <!-- panel 2 -->
+  <rect class="card" x="600" y="155" width="570" height="840"/>
+  <text x="630" y="210" class="h">2. 先把卷膜“立放”成一托</text>
+  <text x="630" y="248" class="body">小图为俯视图：一个圆 = 一卷立放的卷膜</text>
+  <rect x="675" y="300" width="330" height="330" fill="#fffdf7" stroke="#e05a47" stroke-width="4"/>
+  <text x="730" y="288" class="small">1.10 m × 1.10 m 托盘平面</text>
+  <g fill="#9acdae" fill-opacity=".92" stroke="#4c9170" stroke-width="3">
+    <circle cx="760" cy="390" r="65"/><circle cx="920" cy="390" r="65"/>
+    <circle cx="840" cy="475" r="65"/><circle cx="760" cy="560" r="65"/><circle cx="920" cy="560" r="65"/>
+  </g>
+  <text x="690" y="668" class="body">35×680×4000×5：每层 5 卷</text>
+  <text x="690" y="700" class="body">(*2)：同一托盘上共 2 层 = 10 卷</text>
+  <!-- elevation -->
+  <text x="630" y="750" class="h">侧视：本次结果的高度组成</text>
+  <rect x="705" y="900" width="295" height="45" fill="#bc8747" stroke="#805a2d" stroke-width="3"/>
+  <rect x="705" y="755" width="295" height="145" fill="#9acdae" stroke="#4c9170" stroke-width="3"/>
+  <rect x="705" y="710" width="295" height="45" fill="#d6ecd7" stroke="#4c9170" stroke-width="3"/>
+  <text x="1015" y="936" class="small">托盘 15 cm</text>
+  <text x="1015" y="840" class="small">第 1 层：68 + 5 cm 泡沫</text>
+  <text x="1015" y="740" class="small">第 2 层：68 + 5 cm 泡沫</text>
+  <text x="705" y="978" class="body">15 + (68+5)×2 = 161 cm（与结果一致）</text>
+
+  <!-- panel 3 -->
+  <rect class="card" x="1215" y="155" width="530" height="840"/>
+  <text x="1245" y="210" class="h">3. 整托叉入车厢，再按高度组合</text>
+  <rect x="1260" y="285" width="430" height="190" fill="#e8f0f7" stroke="#355d80" stroke-width="4"/>
+  <g stroke="#6e91ae" stroke-width="2">
+    <line x1="1303" y1="285" x2="1303" y2="475"/><line x1="1346" y1="285" x2="1346" y2="475"/><line x1="1389" y1="285" x2="1389" y2="475"/><line x1="1432" y1="285" x2="1432" y2="475"/><line x1="1475" y1="285" x2="1475" y2="475"/><line x1="1518" y1="285" x2="1518" y2="475"/><line x1="1561" y1="285" x2="1561" y2="475"/><line x1="1604" y1="285" x2="1604" y2="475"/><line x1="1647" y1="285" x2="1647" y2="475"/>
+    <line x1="1260" y1="380" x2="1690" y2="380"/>
+  </g>
+  <text x="1260" y="515" class="body">地板托位：10（沿车长）× 2（车宽）= 20 托位</text>
+  <text x="1260" y="548" class="small">计算：⌊11.89/1.10⌋ × ⌊2.32/1.10⌋ = 10 × 2</text>
+  <!-- side truck -->
+  <rect x="1280" y="640" width="380" height="230" fill="#fbfdff" stroke="#355d80" stroke-width="4"/>
+  <rect x="1305" y="720" width="125" height="150" fill="#78bee5" stroke="#397aab" stroke-width="3"/>
+  <rect x="1305" y="660" width="125" height="60" fill="#9acdae" stroke="#4c9170" stroke-width="3"/>
+  <rect x="1465" y="795" width="125" height="75" fill="#78bee5" stroke="#397aab" stroke-width="3"/>
+  <text x="1280" y="620" class="body">车厢侧视，高度上限 250 cm</text>
+  <text x="1316" y="705" class="small">161 cm</text><text x="1475" y="840" class="small">80 cm</text>
+  <text x="1250" y="915" class="body">示例：161 + 80 = 241 cm，可上下组合</text>
+  <text x="1250" y="948" class="small">超过 250 cm 或超载，就不能再叠放。</text>
+</svg>
