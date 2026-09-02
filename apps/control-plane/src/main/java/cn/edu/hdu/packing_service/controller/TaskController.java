@@ -2,12 +2,16 @@ package cn.edu.hdu.packing_service.controller;
 
 
 import cn.edu.hdu.packing_service.pojo.PageBean;
+import cn.edu.hdu.packing_service.job.JobQueueService;
+import cn.edu.hdu.packing_service.job.PackingJob;
+import cn.edu.hdu.packing_service.job.dto.JobView;
 import cn.edu.hdu.packing_service.pojo.Result;
 import cn.edu.hdu.packing_service.pojo.Task;
 import cn.edu.hdu.packing_service.pojo.dto.TaskDTO;
 import cn.edu.hdu.packing_service.service.SuspendService;
 import cn.edu.hdu.packing_service.service.TaskService;
 import cn.edu.hdu.packing_service.utils.DateUtil;
+import cn.edu.hdu.packing_service.utils.ThreadLocalUtil;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.parser.Feature;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +21,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/task")
@@ -24,6 +29,9 @@ public class TaskController {
 
     @Autowired
     private TaskService taskService;
+
+    @Autowired
+    private JobQueueService jobQueueService;
 
     @GetMapping("/list")
     public Result<PageBean<TaskDTO>> list(Integer pageNum,
@@ -127,6 +135,20 @@ public class TaskController {
 
 
 
+    }
+
+    @GetMapping("/job")
+    public Result<JobView> job(Integer taskId) {
+        Task task = taskService.findById(taskId);
+        if (task == null) return Result.error("任务不存在");
+
+        Map<String, Object> claims = ThreadLocalUtil.get();
+        Integer currentUser = (Integer) claims.get("id");
+        if (!task.getCreateUser().equals(currentUser)) return Result.error("任务不存在");
+
+        PackingJob job = jobQueueService.findLatestByTaskId(taskId);
+        if (job == null) return Result.error("任务尚未进入计算队列");
+        return Result.success(JobView.from(job));
     }
 
 

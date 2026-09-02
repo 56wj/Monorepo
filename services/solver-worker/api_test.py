@@ -1,11 +1,9 @@
 import os
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, send_from_directory
 import requests
 from main import PackAll, generator_excel
 import json
 import warnings
-import multiprocessing
-import time
 from matplotlib import pyplot as plt
 from suspend_algo import SuspendPack
 from rectpack import newPacker, MaxRectsBl, GuillotineBlsfSas, MaxRectsBlsf, MaxRectsBaf, MaxRectsBssf, MaxRectsBbef, MaxRectsBiof
@@ -22,44 +20,10 @@ plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
 
 api_base_url = os.getenv('INTERNAL_API_BASE_URL', 'http://localhost:8101').rstrip('/')
 
-urls = [
-    # "http://localhost:8101/specification/palletroll/queryByPalletId",
-    # 'http://localhost:8101/palletpacking/resultback_first',
-    # 'http://localhost:8101/palletpacking/resultback_second',
-    # 'http://localhost:8101/specification/truck/queryAll',     # 车厢规格
-    # 'http://localhost:8101/specification/pallet/queryById',   # 托盘规格
-    # 'http://localhost:8101/suspend/resultback_first',
-    # 'http://localhost:8101/specification/tube/queryAll'
-    f"{api_base_url}/specification/palletroll/queryByPalletId",
-    f'{api_base_url}/palletpacking/resultback_first',
-    f'{api_base_url}/palletpacking/resultback_second',
-    f'{api_base_url}/specification/truck/queryAll',     # 车厢规格
-    f'{api_base_url}/specification/pallet/queryById',   # 托盘规格
-    f'{api_base_url}/suspend/resultback_first',
-    f'{api_base_url}/specification/tube/queryAll'
-]
-
-
-def count_time(receive_data, num):
-    if num == 1:
-        process = multiprocessing.Process(target=task_to_run1, args=(receive_data, ))
-    elif num == 2:
-        process = multiprocessing.Process(target=task_to_run2, args=(receive_data, ))
-    elif num == 3:
-        process = multiprocessing.Process(target=task_to_run3, args=(receive_data, ))
-    else:
-        process = multiprocessing.Process(target=task_to_run1, args=(receive_data,))
-    process.start()
-    print("开始任务")
-    time.sleep(3000)
-    if process.is_alive():
-        process.terminate()
-        print("进程强制结束")
-    else:
-        print("进程正常结束")
-
-    return 0
-
+PALLET_ROLL_SPEC_URL = f"{api_base_url}/specification/palletroll/queryByPalletId"
+TRUCK_SPEC_URL = f"{api_base_url}/specification/truck/queryAll"
+PALLET_SPEC_URL = f"{api_base_url}/specification/pallet/queryById"
+TUBE_SPEC_URL = f"{api_base_url}/specification/tube/queryAll"
 
 def task_to_run1(receive_data):
     try:
@@ -75,46 +39,35 @@ def task_to_run1(receive_data):
         #  获取托盘规格
         print(f"获取托盘规格")
         tray_id_params = {'palletId': tray_id}
-        response = requests.get(urls[4], tray_id_params)
+        response = requests.get(PALLET_SPEC_URL, params=tray_id_params, timeout=(3, 30))
         # 检查响应状态码
         if response.status_code == 200:
             # 如果响应状态码为 200，表示请求成功
             tray_data = response.json()  # 解析 JSON 格式的响应数据
             print(tray_data)
         else:
-            # 如果请求失败，打印错误信息
-            print("Failed to retrieve data. Status code:", response.status_code)
+            raise RuntimeError(f"pallet specification request failed: {response.status_code}")
 
         # 获取规格表
         print("获取规格表")
-        response = requests.get(urls[0], tray_id_params)
+        response = requests.get(PALLET_ROLL_SPEC_URL, params=tray_id_params, timeout=(3, 30))
         # 检查响应状态码
         if response.status_code == 200:
             # 如果响应状态码为 200，表示请求成功
             common_size_data = response.json()  # 解析 JSON 格式的响应数据
             print(common_size_data)
         else:
-            # 如果请求失败，打印错误信息
-            print("Failed to retrieve data. Status code:", response.status_code)
+            raise RuntimeError(f"pallet-roll specification request failed: {response.status_code}")
 
         print('开始计算')
         PackAll_Instance = PackAll()
         result = PackAll_Instance.item_to_tray(request_data, task_id, common_size_data, tray_data)
         print(type(result))
-        # 发起POST请求，并传递参数
-        response = requests.post(urls[1], json={"result": result, "taskId": task_id})
-        print({"result": result, "taskId": task_id})
-        # 检查响应状态码
-        if response.status_code == 200:
-            # 解析JSON响应
-            data = response.json()
-            print("第一次返回成功")
-            # return jsonify(data)
-        else:
-            return jsonify({"error": f"API request failed with status code {response.status_code}"})
+        output = {"result": result, "taskId": task_id}
+        return output
     except Exception as e:
         print(str(e))
-        return jsonify({"error": f"An error occurred: {str(e)}"})
+        raise
 
 
 def task_to_run2(receive_data):
@@ -132,7 +85,7 @@ def task_to_run2(receive_data):
         print("接收第二次数据成功")
 
         # 获取车厢规格表
-        response = requests.get(urls[3])
+        response = requests.get(TRUCK_SPEC_URL, timeout=(3, 30))
         # 检查响应状态码
         if response.status_code == 200:
             # 如果响应状态码为 200，表示请求成功
@@ -142,24 +95,20 @@ def task_to_run2(receive_data):
         else:
             # 如果请求失败，打印错误信息
             print("Failed to retrieve data. Status code:", response.status_code)
-            return jsonify({"error": f"API request failed with status code {response.status_code}"})
+            raise RuntimeError(f"truck specification request failed: {response.status_code}")
 
         #  获取托盘规格
         print(f"获取托盘规格")
         tray_id_params = {'palletId': tray_id}
-        response = requests.get(urls[4], tray_id_params)
+        response = requests.get(PALLET_SPEC_URL, params=tray_id_params, timeout=(3, 30))
         # 检查响应状态码
         if response.status_code == 200:
             # 如果响应状态码为 200，表示请求成功
             tray_data = response.json()  # 解析 JSON 格式的响应数据
             print(tray_data)
         else:
-            # 如果请求失败，打印错误信息
-            print("Failed to retrieve data. Status code:", response.status_code)
+            raise RuntimeError(f"pallet specification request failed: {response.status_code}")
 
-        # 替换以下URL为你要调用的接口的实际URL
-        # api_url = 'http://localhost:8101/palletpacking/resultback_second'
-        # 要传递的参数
         print('开始计算')
         PackAll_Instance = PackAll()
         p, whole_tray_number, info, residue_item_info, residue_item_number = \
@@ -321,20 +270,15 @@ def task_to_run2(receive_data):
         result_param = json.dumps(b, ensure_ascii=False)
         print(result_param)
 
-        # 发起POST请求，并传递参数
-        response = requests.post(urls[2], json={'result': result_param, 'taskId': task_id})
-
-        # 检查响应状态码
-        if response.status_code == 200:
-            # 解析JSON响应
-            data = response.json()
-            print("第二次返回成功")
-            return jsonify(data)
-        else:
-            return jsonify({"error": f"API request failed with status code {response.status_code}"})
+        output = {
+            'result': result_param,
+            'taskId': task_id,
+            'resultExcel': b["excel_address"]
+        }
+        return output
     except Exception as e:
         print(e)
-        return 0
+        raise
 
 
 def select_suspend_result_legacy(results):
@@ -368,7 +312,7 @@ def task_to_run3(receive_data):
     # orderid = request_data["config"]["orderId"]
 
     # 获取车厢规格表
-    response = requests.get(urls[3])
+    response = requests.get(TRUCK_SPEC_URL, timeout=(3, 30))
     # 检查响应状态码
     if response.status_code == 200:
         # 如果响应状态码为 200，表示请求成功
@@ -378,10 +322,10 @@ def task_to_run3(receive_data):
     else:
         # 如果请求失败，打印错误信息
         print("Failed to retrieve data. Status code:", response.status_code)
-        return jsonify({"error": f"API request failed with status code {response.status_code}"})
+        raise RuntimeError(f"truck specification request failed: {response.status_code}")
 
     # 获取纸管规格
-    response = requests.get(urls[6])
+    response = requests.get(TUBE_SPEC_URL, timeout=(3, 30))
     # 检查响应状态码
     if response.status_code == 200:
         # 如果响应状态码为 200，表示请求成功
@@ -390,7 +334,7 @@ def task_to_run3(receive_data):
     else:
         # 如果请求失败，打印错误信息
         print("Failed to retrieve data. Status code:", response.status_code)
-        return jsonify({"error": f"API request failed with status code {response.status_code}"})
+        raise RuntimeError(f"tube specification request failed: {response.status_code}")
 
     print('开始计算')
     suspend_pack_instance = SuspendPack(request_data, truck_size_data, task_id, arrive_date, tube_size_data)
@@ -429,46 +373,13 @@ def task_to_run3(receive_data):
     result = json.dumps(max_result, ensure_ascii=False)
     print(result)
     print(f"计算完成")
-    response = requests.post(urls[5], json={'result': result, 'taskId': task_id})
-    print(response)
-    # 检查响应状态码
-    if response.status_code == 200:
-        # 解析JSON响应
-        # data = response.json()
-        print("悬空返回成功")
-    else:
-        print("悬空返回失败")
-    return 0
+    output = {'result': result, 'taskId': task_id}
+    return output
 
 
 @app.route('/images/<path:filename>')
 def serve_image(filename):
     return send_from_directory(IMAGES_FOLDER, filename)
-
-
-@app.route('/api/pallet/first', methods=['POST'])
-def call_external_api_first():
-    receive_data = request.get_json()
-    process = multiprocessing.Process(target=count_time, args=(receive_data, 1))
-    process.start()
-    return jsonify({"status": "Task ended"})
-
-
-@app.route('/api/pallet/second', methods=['POST'])
-def call_external_api_second():
-    receive_data = request.get_json()
-    process = multiprocessing.Process(target=count_time, args=(receive_data, 2))
-    process.start()
-    return jsonify({"status": "Task ended"})
-
-
-@app.route('/api/suspend/first', methods=['POST'])
-def call_external_api_suspend():
-    receive_data = request.get_json()
-    process = multiprocessing.Process(target=count_time, args=(receive_data, 3))
-    process.start()
-    return jsonify({"status": "Task ended"})
-
 
 if __name__ == '__main__':
     warnings.filterwarnings('ignore')

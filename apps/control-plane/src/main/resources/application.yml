@@ -17,6 +17,11 @@ spring:
     username: ${MYSQL_USER:packing}
     password: ${MYSQL_PASSWORD:change-me}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
 
 server:
   port: ${SERVER_PORT:8101}
@@ -30,3 +35,12 @@ logging:
     root: INFO
   file:
     name: ${LOG_FILE:/tmp/packing/logs/control-plane.log}
+
+job-queue:
+  worker-token: ${JOB_WORKER_TOKEN:local-dev-worker-token}
+  default-lease-seconds: ${JOB_LEASE_SECONDS:90}
+  max-lease-seconds: ${JOB_MAX_LEASE_SECONDS:300}
+  max-attempts: ${JOB_MAX_ATTEMPTS:3}
+  retry-base-seconds: ${JOB_RETRY_BASE_SECONDS:10}
+  reaper-batch-size: ${JOB_REAPER_BATCH_SIZE:100}
+  reaper-interval-ms: ${JOB_REAPER_INTERVAL_MS:30000}

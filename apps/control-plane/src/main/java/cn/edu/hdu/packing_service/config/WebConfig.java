@@ -23,8 +23,9 @@ public class WebConfig implements WebMvcConfigurer {
 
         //登录接口和注册接口不需要拦截
         registry.addInterceptor(loginInterceptor).excludePathPatterns("/user/login" , "/user/register" ,
-                "/palletpacking/resultback_first","/specification/queryAll","/palletpacking/resultback_second","/specification/palletroll/queryByPalletId","/specification/tube/queryAll",
-                "/specification/pallet/queryById","/specification/truck/queryAll","/externalApi/stock/push_data","/suspend/resultback_first","/externalApi/stock/push_data");
+                "/specification/queryAll","/specification/palletroll/queryByPalletId","/specification/tube/queryAll",
+                "/specification/pallet/queryById","/specification/truck/queryAll","/externalApi/stock/push_data",
+                "/internal/v1/jobs/**");
 
     }
 }

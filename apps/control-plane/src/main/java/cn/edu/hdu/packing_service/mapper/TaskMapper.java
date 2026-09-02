@@ -26,11 +26,8 @@ public interface TaskMapper {
     @Select("select * from ctask where id = #{taskId}")
     Task findTaskById(Integer taskId);
 
-    @Update("update ctask set state = '计算超时' where id = #{taskId}")
-    void timeOut(Integer taskId);
-
-    @Update("update ctask set state = '网络错误' where id = #{taskId}")
-    void connectError(Integer taskId);
+    @Update("update ctask set state = #{state}, update_time = now() where id = #{taskId}")
+    void updateExecutionState(Integer taskId, String state);
 
     @Select("select * from ctask where create_user = #{currentUser} AND state = '整托计算完成' AND type = '托盘装箱' order by create_time desc limit 1")
     Task getPalletLatestTask(Integer currentUser);

@@ -1,0 +1,73 @@
+services:
+  mysql:
+    image: mysql:8.0.36
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DB:-db_kindlead}
+      MYSQL_USER: ${MYSQL_USER:-packing}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local-root-change-me}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    ports:
+      - "${MYSQL_EXPOSE_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-local-root-change-me}"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  control-plane:
+    build:
+      context: ../../apps/control-plane
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: ${MYSQL_DB:-db_kindlead}
+      MYSQL_USER: ${MYSQL_USER:-packing}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      JOB_WORKER_TOKEN: ${JOB_WORKER_TOKEN:-local-dev-worker-token}
+      PACKING_DATA_DIR: /data/packing
+    ports:
+      - "8101:8101"
+    volumes:
+      - packing-data:/data/packing
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  solver-worker:
+    build:
+      context: ../../services/solver-worker
+    environment:
+      INTERNAL_API_BASE_URL: http://control-plane:8101
+      JOB_WORKER_TOKEN: ${JOB_WORKER_TOKEN:-local-dev-worker-token}
+      WORKER_ID: ${WORKER_ID:-solver-compose}
+      WORKER_CAPABILITIES: ${WORKER_CAPABILITIES:-PALLET_FIRST,PALLET_SECOND,SUSPEND_FIRST}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      JOB_LEASE_SECONDS: ${JOB_LEASE_SECONDS:-90}
+      JOB_HEARTBEAT_SECONDS: ${JOB_HEARTBEAT_SECONDS:-20}
+      JOB_MAX_RUNTIME_SECONDS: ${JOB_MAX_RUNTIME_SECONDS:-3000}
+      PUBLIC_ASSET_BASE_URL: ${PUBLIC_ASSET_BASE_URL:-http://localhost:5001}
+    volumes:
+      - solver-assets:/app/static/images
+    depends_on:
+      - control-plane
+    restart: unless-stopped
+
+  asset-server:
+    build:
+      context: ../../services/solver-worker
+    command: ["python", "asset_server.py"]
+    environment:
+      ASSET_SERVER_PORT: 5001
+    ports:
+      - "5001:5001"
+    volumes:
+      - solver-assets:/app/static/images:ro
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  packing-data:
+  solver-assets:

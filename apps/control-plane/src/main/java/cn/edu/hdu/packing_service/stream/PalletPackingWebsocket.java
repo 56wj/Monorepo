@@ -4,7 +4,6 @@ import cn.edu.hdu.packing_service.pojo.Result;
 import cn.edu.hdu.packing_service.stream.encoder.ResultEncoder;
 import cn.edu.hdu.packing_service.utils.DateUtil;
 import cn.edu.hdu.packing_service.utils.JwtUtil;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 import javax.websocket.CloseReason;
@@ -40,7 +39,7 @@ public class PalletPackingWebsocket {
     @OnOpen
     public void onOpen(Session session) throws IOException {
         String token = firstRequestParameter(session, "token");
-        if (StringUtils.isBlank(token)) {
+        if (isBlank(token)) {
             session.close(new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY, "missing token"));
             return;
         }
@@ -96,7 +95,7 @@ public class PalletPackingWebsocket {
 
     public static void sendMessageByUserId(String userId, Result message) {
         System.out.println(DateUtil.getNowTime() + "信息发送给用户" + userId);
-        if (StringUtils.isBlank(userId)) return;
+        if (isBlank(userId)) return;
 
         Set<String> clientSet = conns.get(userId);
         if (clientSet == null) return;
@@ -134,6 +133,10 @@ public class PalletPackingWebsocket {
         Map<String, List<String>> parameters = session.getRequestParameterMap();
         List<String> values = parameters.get(name);
         return values == null || values.isEmpty() ? null : values.get(0);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     private static void removeSession(String userId, String sid, Session session) {

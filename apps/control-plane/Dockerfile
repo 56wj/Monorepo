@@ -21,7 +21,7 @@ FROM docker.m.daocloud.io/library/eclipse-temurin:8-jre-jammy
 WORKDIR /app
 
 # 创建文件存储目录（替代 Windows 路径）
-RUN mkdir -p /data/source /data/result /data/middle /data/push /data/images /data/logs
+RUN mkdir -p /data/packing/source /data/packing/result /data/packing/middle /data/packing/push /data/packing/images /data/packing/logs
 
 # 从构建阶段复制打包好的 JAR
 COPY --from=builder /app/target/packing_service-0.0.2-SNAPSHOT.jar app.jar

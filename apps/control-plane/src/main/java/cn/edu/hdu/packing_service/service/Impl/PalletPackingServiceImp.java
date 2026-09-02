@@ -4,20 +4,13 @@ import cn.edu.hdu.packing_service.mapper.PalletPackingMapper;
 import cn.edu.hdu.packing_service.mapper.TaskMapper;
 import cn.edu.hdu.packing_service.pojo.PageBean;
 import cn.edu.hdu.packing_service.pojo.Task;
-import cn.edu.hdu.packing_service.pojo.Result;
 import cn.edu.hdu.packing_service.config.PythonExecuteConfig;
 import cn.edu.hdu.packing_service.pojo.dto.TaskDTO;
 import cn.edu.hdu.packing_service.service.PalletPackingService;
-import cn.edu.hdu.packing_service.stream.PalletPackingWebsocket;
-import cn.edu.hdu.packing_service.utils.DateUtil;
-import cn.edu.hdu.packing_service.utils.MyUtil;
 import cn.edu.hdu.packing_service.utils.ThreadLocalUtil;
-import com.alibaba.fastjson.JSON;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
-import okhttp3.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -46,49 +39,6 @@ public class PalletPackingServiceImp implements PalletPackingService {
     @Autowired
     private TaskMapper taskMapper; // 数据库操作
 
-    /**
-     * @Author: strelizia
-     * @Date: 2024/1/30 11:54
-     * @param: endpoint
-     * @return: String
-     * @Description: 调用python接口
-     */
-    @Override
-    @Async
-    public void FirstCalculateApi(String jsonData , Integer taskId) {
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                MediaType JSON = MediaType.get("application/json; charset=utf-8");
-                // 注意：这里需要根据实际情况调整JSON字符串的构造方式
-                String jsonString = "{\"data\":" + jsonData + ",\"task_id\":\"" + taskId.toString() + "\"}";
-
-                HttpUrl httpUrl = HttpUrl.parse(pythonExecuteConfig.getHost() + ":" + pythonExecuteConfig.getPort() + pythonExecuteConfig.getRoute() + "/pallet/first").newBuilder()
-                        .build();
-
-                OkHttpClient client = new OkHttpClient(); // 创建okhttp客户端
-                RequestBody body = RequestBody.create(jsonString, JSON); // 创建请求体
-                Request request = new Request.Builder()// 创建POST请求
-                        .url(httpUrl)
-                        .post(body)
-                        .build();
-                try {
-                    System.out.println(DateUtil.getNowTime() + " 一阶段开始计算");
-                    client.newCall(request).execute().body().string(); // 获取python接口返回的数据
-                }catch (Exception e){
-                    e.printStackTrace();
-                    //非超时错误
-                    if (!e.getMessage().equals("timeout")) {
-                        taskMapper.connectError(taskId);
-                    }
-                }
-            }
-        };
-        new Thread(runnable).start();
-    }
-
-
-
     public Integer AddTask(String storagePath, String orderID) {
         //获取当前用户
         Map<String , Object> claims = ThreadLocalUtil.get();
@@ -109,19 +59,6 @@ public class PalletPackingServiceImp implements PalletPackingService {
         return task.getId();
     }
 
-
-    @Override
-    public void UpdateTask(Integer taskId, String jsonpath , String excelPath) {
-        //获取任务
-        Task task = taskMapper.findTaskById(taskId);
-        //判断任务是否已经计算超时
-        if (task.getState().equals("计算超时")){
-            return;
-        }else {
-            //更新任务
-            taskMapper.updateTask(taskId, jsonpath , excelPath);
-        }
-    }
 
     @Override
     public PageBean<TaskDTO> list(Integer pageNum, Integer pageSize, String type, String state , String orderId , String startTime , String endTime) {
@@ -204,44 +141,6 @@ public class PalletPackingServiceImp implements PalletPackingService {
     }
 
 
-    @Async
-    @Override
-    public void timeOut(Integer taskId , Integer stage) {
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Thread.sleep(1000 * 60 * 20); // 20分钟
-                    Task task = taskMapper.findTaskById(taskId);
-
-                    //获取用户id
-                    Integer userId = taskMapper.findTaskById(taskId).getCreateUser();
-                    if (task == null){
-                        return;
-                    }
-
-                    //Todo
-                    if (stage == 1 && task.getTagMiddle() != 1 && !task.getState().equals("网络错误")){
-                        taskMapper.timeOut(taskId);
-                        PalletPackingWebsocket.sendMessageByUserId(String.valueOf(userId), Result.error("小托计算超时"));
-                    }
-
-                    if (stage == 2 && !task.getState().equals("整托计算完成")&& !task.getState().equals("网络错误")) {
-                        taskMapper.timeOut(taskId);
-                        PalletPackingWebsocket.sendMessageByUserId(String.valueOf(userId), Result.error("整托计算超时"));
-                    } else {
-                        return;
-                    }
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-        new Thread(runnable).start();
-    }
-
-
-
     @Override
     public Task findById(Integer taskId) {
         return taskMapper.findTaskById(taskId);
@@ -253,45 +152,5 @@ public class PalletPackingServiceImp implements PalletPackingService {
     public void secondUpdate(String storePath, Integer taskId) {
         palletPackingMapper.secondUpdate(storePath, taskId);
     }
-
-    @Async
-    @Override
-    public void SecondCalculateApi(String jsonData, Integer taskId) {
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-
-                // 构造JSON数据，这里假设jsonData是一个合法的JSON字符串，taskId是任务ID
-                MediaType JSON = MediaType.get("application/json; charset=utf-8");
-                // 注意：这里需要根据实际情况调整JSON字符串的构造方式
-
-                HttpUrl httpUrl = HttpUrl.parse(pythonExecuteConfig.getHost() + ":" + pythonExecuteConfig.getPort() + pythonExecuteConfig.getRoute() + "/pallet/second").newBuilder()
-                        .build();
-                OkHttpClient client = new OkHttpClient(); // 创建okhttp客户端
-                RequestBody body = RequestBody.create(jsonData, JSON); // 创建请求体
-                Request request = new Request.Builder()// 创建POST请求
-                        .url(httpUrl)
-                        .post(body)
-                        .build();
-                try {
-                    System.out.println(DateUtil.getNowTime() + "二阶段计算开始");
-                    client.newCall(request).execute().body().string(); // 获取python接口返回的数据
-                }catch (Exception e){
-                    e.printStackTrace();
-                    //非超时错误
-                    if (!e.getMessage().equals("timeout")) {
-                        taskMapper.connectError(taskId);
-                    }
-                }
-            }
-        };
-        new Thread(runnable).start();
-    }
-
-    @Override
-    public void UpdateFirst(int taskId, String result) {
-        palletPackingMapper.updateFirst(taskId, result);
-    }
-
 
 }

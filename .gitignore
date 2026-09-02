@@ -41,3 +41,4 @@ artifacts/
 !testdata/synthetic/**
 !contracts/**/*.json
 !services/solver-worker/export_template.xlsx
+!apps/control-plane/src/main/resources/db/migration/*.sql

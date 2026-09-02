@@ -1,14 +1,11 @@
 package cn.edu.hdu.packing_service.controller;
 
-import cn.edu.hdu.packing_service.constant.StatusCodes;
-import cn.edu.hdu.packing_service.pojo.PageBean;
+import cn.edu.hdu.packing_service.job.PackingJobSubmissionService;
 import cn.edu.hdu.packing_service.pojo.Result;
 import cn.edu.hdu.packing_service.pojo.Task;
-import cn.edu.hdu.packing_service.pojo.dto.TaskDTO;
 import cn.edu.hdu.packing_service.service.PalletPackingService;
 import cn.edu.hdu.packing_service.config.PythonExecuteConfig;
 import cn.edu.hdu.packing_service.service.TaskService;
-import cn.edu.hdu.packing_service.stream.PalletPackingWebsocket;
 import cn.edu.hdu.packing_service.utils.DateUtil;
 import cn.edu.hdu.packing_service.utils.PalletPackingConfigValidator;
 import com.alibaba.fastjson.JSONObject;
@@ -24,7 +21,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -40,6 +36,9 @@ public class PalletPackingController {
 
     @Autowired
     private TaskService taskService;
+
+    @Autowired
+    private PackingJobSubmissionService jobSubmissionService;
 
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -94,14 +93,7 @@ public class PalletPackingController {
             e.printStackTrace();
             return Result.error("Failed to write JSON to file.");
         }
-        Integer taskId = palletPackingService.AddTask(sourcePath.toString() , orderID);
-
-        palletPackingService.timeOut(taskId, 1);
-
-        //打印json数据
-        //System.out.println(jsonData);
-
-        palletPackingService.FirstCalculateApi(jsonData , taskId);
+        Integer taskId = jobSubmissionService.submitPalletFirst(sourcePath.toString(), orderID, data);
 
         return Result.success(taskId);
     }
@@ -174,135 +166,10 @@ public class PalletPackingController {
         //打印json数据
         //System.out.println(res);
         //更新任务状态
-        palletPackingService.secondUpdate(middleJosn.toString() , taskId);
-
-        //启动计时器
-        System.out.println(DateUtil.getNowTime() + " - " + "启动计时器");
-        palletPackingService.timeOut(taskId,2);
-
-        //开始第二次计算
-        System.out.println(DateUtil.getNowTime() + " - " + "开始第二次计算");
-        palletPackingService.SecondCalculateApi(res.toJSONString() , taskId);
+        jobSubmissionService.submitPalletSecond(taskId, middleJosn.toString(), res);
 
         return Result.success();
     }
-
-
-
-    @PostMapping("/resultback_first")
-    public Result resultbackFirst(@RequestBody Map<String, Object> data) {
-        System.out.println(DateUtil.getNowTime() + " - " + "获取到一阶段计算结果反馈请求");
-
-        if (!data.containsKey("taskId") || !data.containsKey("result")) {
-            return Result.error("The request doesn't contain a 'taskId' or 'result' key.");
-        }
-
-        //获取任务id
-        int taskId = Integer.parseInt((String) data.get("taskId"));
-
-        //打印结果
-//        System.out.println(data.get("result"));
-
-        //获取结果
-        String result = (String) data.get("result");
-
-        //更新任务状态
-        palletPackingService.UpdateFirst(taskId , result);
-
-        //获取当前用户
-        Task task = palletPackingService.findById(taskId);
-
-        //判断任务是否存在
-        if(task == null){
-            return Result.error("The task doesn't exist.");
-        }
-        Integer currentUser = task.getCreateUser();
-
-
-        //封装返回结果
-        Map<String , Object> res = new HashMap<>();
-        res.put("taskId" , taskId);
-        res.put("result" , result);
-
-        //发送websocket
-        System.out.println(DateUtil.getNowTime() + " - " + "一阶段结果返回");
-        PalletPackingWebsocket.sendMessageByUserId(String.valueOf(currentUser), Result.success(StatusCodes.PALLET_FIRST_CODE ,"小托结果返回", res));
-
-        return Result.success();
-
-
-    }
-
-    /***
-     * @Author: strelizia
-     * @Date: 2024/3/9 19:23
-     * @param: taskId
-     * @param: result
-     * @return: Result
-     * @Description:
-     */
-    @PostMapping("/resultback_second")
-    public Result resultbackSecond(@RequestBody Map<String, Object> data) {
-        System.out.println(DateUtil.getNowTime() + " - " + "获取到二阶段计算结果反馈请求");
-        if (!data.containsKey("taskId") || !data.containsKey("result")) {
-            return Result.error("The request doesn't contain a 'taskId' or 'result' key.");
-        }
-
-        //获取任务id
-        int taskId = (Integer) data.get("taskId");
-
-        //获取结果
-        String result = (String) data.get("result");
-
-        //获取结果excel路径
-        String excelPath = (String) data.get("resultExcel");
-
-
-        Path resultPath = Paths.get(pythonExecuteConfig.getResult_save_path() + UUID.randomUUID() + ".json");
-
-        //判断是否存在该文件夹
-        if(Files.notExists(resultPath.getParent())){
-            try {
-                Files.createDirectories(resultPath.getParent());
-            } catch (IOException e) {
-                e.printStackTrace();
-                return Result.error("Failed to create directory.");
-            }
-        }
-
-        //将结果写入文件
-        try {
-            Files.write(resultPath, result.getBytes(StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        System.out.println(DateUtil.getNowTime() + " - " + "二阶段结果写入文件");
-
-
-        //获取当前用户
-        Task task = palletPackingService.findById(taskId);
-
-        //判断任务是否存在
-        if(task == null){
-            return Result.error("任务不存在");
-        }
-
-        Integer currentUser = task.getCreateUser();
-
-        //更新任务状态
-        palletPackingService.UpdateTask(taskId , resultPath.toString() , excelPath);
-
-        Map<String , Object> res = new HashMap<>();
-        res.put("taskId" , taskId);
-        res.put("result" , result);
-
-        //发送websocket
-        System.out.println(DateUtil.getNowTime() + " - " + "二阶段结果返回");
-        PalletPackingWebsocket.sendMessageByUserId(String.valueOf(currentUser), Result.success(StatusCodes.PALLET_SECOND_CODE ,"最终结果返回", res));
-
-        return Result.success("websocket已发送");
-    }
-
 
 
 

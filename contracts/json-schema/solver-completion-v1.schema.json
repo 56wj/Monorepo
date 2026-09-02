@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roll-load.local/contracts/solver-completion-v1.schema.json",
+  "title": "Solver Completion V1",
+  "type": "object",
+  "required": ["leaseToken", "output"],
+  "properties": {
+    "leaseToken": {"type": "string", "format": "uuid"},
+    "output": {
+      "type": "object",
+      "required": ["result", "taskId"],
+      "properties": {
+        "result": {},
+        "taskId": {"oneOf": [{"type": "integer"}, {"type": "string"}]},
+        "resultExcel": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

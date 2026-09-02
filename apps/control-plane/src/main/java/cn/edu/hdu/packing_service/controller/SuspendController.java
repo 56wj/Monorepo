@@ -2,13 +2,11 @@ package cn.edu.hdu.packing_service.controller;
 
 
 import cn.edu.hdu.packing_service.config.PythonExecuteConfig;
-import cn.edu.hdu.packing_service.constant.StatusCodes;
+import cn.edu.hdu.packing_service.job.PackingJobSubmissionService;
 import cn.edu.hdu.packing_service.pojo.Result;
 import cn.edu.hdu.packing_service.pojo.Task;
 import cn.edu.hdu.packing_service.service.SuspendService;
 import cn.edu.hdu.packing_service.service.TaskService;
-import cn.edu.hdu.packing_service.stream.PalletPackingWebsocket;
-import cn.edu.hdu.packing_service.stream.SuspendPackingWebsocket;
 import cn.edu.hdu.packing_service.utils.DateUtil;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.parser.Feature;
@@ -42,6 +40,9 @@ public class SuspendController {
 
     @Autowired
     private TaskService taskService;
+
+    @Autowired
+    private PackingJobSubmissionService jobSubmissionService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -115,80 +116,11 @@ public class SuspendController {
             return Result.error("Failed to write JSON to file.");
         }
 
-        Integer taskId = suspendService.AddTask(sourcePath.toString() ,orderID);
-
-        suspendService.TimeOut(taskId);
-
-        suspendService.CalculateApi(jsonData , taskId);
+        Integer taskId = jobSubmissionService.submitSuspendFirst(sourcePath.toString(), orderID, data);
 
         return Result.success(taskId);
     }
 
-
-    @PostMapping("/resultback_first")
-    public Result resultbackFirst(@RequestBody Map<String, Object> data) {
-        System.out.println(DateUtil.getNowTime() + " - " + "获取到一阶段计算结果反馈请求");
-
-        if (!data.containsKey("taskId") || !data.containsKey("result")) {
-            return Result.error("The request doesn't contain a 'taskId' or 'result' key.");
-        }
-
-        System.out.println(data);
-
-        //获取任务id
-        int taskId = Integer.parseInt((String) data.get("taskId"));
-
-        //获取结果
-        String result = data.get("result").toString();
-
-        
-        Path resultPath = Paths.get(pythonExecuteConfig.getResult_save_path() + UUID.randomUUID() + ".json");
-
-        //判断是否存在该文件夹
-        if(Files.notExists(resultPath.getParent())){
-            try {
-                Files.createDirectories(resultPath.getParent());
-            } catch (IOException e) {
-                e.printStackTrace();
-                return Result.error("Failed to create directory.");
-            }
-        }
-        //将结果写入文件
-        try {
-            Files.write(resultPath, result.getBytes(StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        System.out.println(DateUtil.getNowTime() + " - " + "悬空装箱结果写入文件");
-
-
-        //更新任务状态
-        suspendService.UpdateTask(taskId , resultPath.toString());
-
-        //获取当前用户
-        Task task = suspendService.findById(taskId);
-
-        //判断任务是否存在
-        if(task == null){
-            return Result.error("The task doesn't exist.");
-        }
-        Integer currentUser = task.getCreateUser();
-
-
-        //封装返回结果
-        Map<String , Object> res = new HashMap<>();
-        res.put("taskId" , taskId);
-        res.put("result" , result);
-
-        //发送websocket
-        System.out.println(DateUtil.getNowTime() + " - " + "一阶段结果返回");
-        PalletPackingWebsocket.sendMessageByUserId(String.valueOf(currentUser), Result.success(StatusCodes.SUSPEND_FIRST_CODE ,"悬空结果返回", res));
-
-        return Result.success();
-
-
-    }
 
     @GetMapping("/getLatestTask")
     public Result getLatestTask() {

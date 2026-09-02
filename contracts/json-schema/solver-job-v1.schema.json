@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roll-load.local/contracts/solver-job-v1.schema.json",
+  "title": "Solver Job V1",
+  "type": "object",
+  "required": [
+    "jobId",
+    "taskId",
+    "jobType",
+    "payload",
+    "attempt",
+    "maxAttempts",
+    "leaseToken",
+    "leaseExpiresAt"
+  ],
+  "properties": {
+    "jobId": {"type": "string", "format": "uuid"},
+    "taskId": {"type": "integer", "minimum": 1},
+    "jobType": {
+      "type": "string",
+      "enum": ["PALLET_FIRST", "PALLET_SECOND", "SUSPEND_FIRST"]
+    },
+    "payload": {"type": "object"},
+    "attempt": {"type": "integer", "minimum": 1},
+    "maxAttempts": {"type": "integer", "minimum": 1},
+    "leaseToken": {"type": "string", "format": "uuid"},
+    "leaseExpiresAt": {"type": "string", "format": "date-time"}
+  },
+  "additionalProperties": false
+}

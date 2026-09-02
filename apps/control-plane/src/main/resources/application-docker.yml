@@ -18,15 +18,15 @@ packing-python-api:
   port: ${PYTHON_API_PORT:5000}
   route: /api
   methods: GET
-  source_save_path: /data/source/
-  result_save_path: /data/result/
-  middle_save_path: /data/middle/
-  push_save_path: /data/push/
-  image_path: /data/images/
+  source_save_path: ${PACKING_DATA_DIR:/data/packing}/source/
+  result_save_path: ${PACKING_DATA_DIR:/data/packing}/result/
+  middle_save_path: ${PACKING_DATA_DIR:/data/packing}/middle/
+  push_save_path: ${PACKING_DATA_DIR:/data/packing}/push/
+  image_path: ${PACKING_DATA_DIR:/data/packing}/images/
 
 # 日志输出到 /data/logs/
 logging:
   level:
     root: INFO
   file:
-    name: /data/logs/myapp.log
+    name: ${PACKING_DATA_DIR:/data/packing}/logs/control-plane.log

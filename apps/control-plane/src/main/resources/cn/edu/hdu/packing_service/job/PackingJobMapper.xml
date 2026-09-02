@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.hdu.packing_service.job.PackingJobMapper">
+    <select id="lockNextClaimable" resultType="cn.edu.hdu.packing_service.job.PackingJob">
+        select *
+        from packing_job
+        where status in ('QUEUED', 'RETRY_WAIT')
+          and available_at &lt;= #{now}
+          and attempt &lt; max_attempts
+          and job_type in
+        <foreach collection="jobTypes" item="jobType" open="(" separator="," close=")">
+            #{jobType}
+        </foreach>
+        order by priority desc, created_at asc
+        limit 1
+        for update skip locked
+    </select>
+
+    <select id="lockByPublicId" resultType="cn.edu.hdu.packing_service.job.PackingJob">
+        select * from packing_job where public_id = #{publicId} for update
+    </select>
+
+    <select id="lockExpiredLeases" resultType="cn.edu.hdu.packing_service.job.PackingJob">
+        select *
+        from packing_job
+        where status = 'RUNNING'
+          and lease_expires_at &lt;= #{now}
+        order by lease_expires_at asc
+        limit #{limit}
+        for update skip locked
+    </select>
+</mapper>
