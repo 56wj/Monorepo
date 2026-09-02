@@ -35,9 +35,46 @@ jobs:
           python-version: "3.9"
           cache: pip
           cache-dependency-path: services/solver-worker/requirements.txt
-      - run: python -m pip install requests==2.32.3
+      - run: python -m pip install requests==2.32.3 prometheus-client==0.21.1
       - run: python -m unittest -v tests/test_overlap_rules.py tests/test_worker_contract.py
       - run: python -m compileall -q .
+
+  planning-agent:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/planning-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/planning-agent/requirements.txt
+      - run: python -m pip install -r requirements.txt
+      - run: PYTHONPATH=. python -m unittest discover -s tests -v
+      - run: python -m compileall -q planning_agent
+      - name: API smoke test
+        run: |
+          uvicorn planning_agent.api:app --host 127.0.0.1 --port 8200 &
+          pid=$!
+          trap 'kill $pid' EXIT
+          for i in {1..20}; do curl -sf http://127.0.0.1:8200/healthz && break || sleep 1; done
+          curl -sf http://127.0.0.1:8200/v1/plans \
+            -H 'Content-Type: application/json' \
+            -d '{"query":"最大承重1200kg，最大高度1600mm，禁止混装"}' \
+            | python -c 'import json,sys; assert json.load(sys.stdin)["decision"]["executable"]'
+
+  agent-evals-and-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python evals/agent/evaluate.py --output /tmp/agent-eval.json
+      - run: python evals/benchmarks/load_test.py --mode inprocess --requests 500 --concurrency 16 --output /tmp/load-test.json
+      - run: cd evals/benchmarks && python -m unittest -v test_load_test.py
 
   contracts-and-compose:
     runs-on: ubuntu-latest
@@ -53,3 +90,6 @@ jobs:
               print("valid", path)
           PY
       - run: docker compose -f infra/compose/docker-compose.m1.yml config
+      - run: docker compose -f infra/compose/docker-compose.m2.yml config
+      - name: Validate observability JSON
+        run: python -m json.tool infra/observability/grafana/dashboards/packing-platform.json >/dev/null

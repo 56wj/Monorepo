@@ -8,14 +8,64 @@ import socket
 import threading
 import time
 import traceback
+import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import requests
 
+try:
+    from prometheus_client import Counter, Gauge, Histogram, start_http_server
+except ImportError:  # Keeps solver-only development usable before dependencies are installed.
+    class _NoopMetric:
+        def labels(self, **_kwargs):
+            return self
+
+        def inc(self):
+            return None
+
+        def dec(self):
+            return None
+
+        def observe(self, _value):
+            return None
+
+    def Counter(*_args, **_kwargs):
+        return _NoopMetric()
+
+    def Gauge(*_args, **_kwargs):
+        return _NoopMetric()
+
+    def Histogram(*_args, **_kwargs):
+        return _NoopMetric()
+
+    def start_http_server(*_args, **_kwargs):
+        LOG.warning("prometheus_client_missing metrics_endpoint=disabled")
+
 
 LOG = logging.getLogger("solver-worker")
 STOP_EVENT = threading.Event()
+JOBS = Counter(
+    "packing_worker_jobs_total",
+    "Solver worker job outcomes",
+    ["job_type", "outcome"],
+)
+ACTIVE_JOBS = Gauge(
+    "packing_worker_active_jobs",
+    "Currently executing solver jobs",
+    ["job_type"],
+)
+JOB_DURATION = Histogram(
+    "packing_worker_job_duration_seconds",
+    "Solver child process duration",
+    ["job_type", "outcome"],
+    buckets=(1, 5, 15, 30, 60, 120, 300, 600, 1200, 3000),
+)
+CONTROL_PLANE_ERRORS = Counter(
+    "packing_worker_control_plane_errors_total",
+    "Control plane communication failures",
+    ["operation"],
+)
 
 
 class LeaseLost(RuntimeError):
@@ -67,12 +117,18 @@ class JobClient:
     def __init__(self, config: WorkerConfig, session: Optional[requests.Session] = None):
         self.config = config
         self.session = session or requests.Session()
-        self.headers = {"X-Worker-Token": config.worker_token}
+
+    def _headers(self, job: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+        trace_id = job.get("traceId") if job else uuid.uuid4().hex
+        return {
+            "X-Worker-Token": self.config.worker_token,
+            "X-Trace-Id": trace_id or uuid.uuid4().hex,
+        }
 
     def claim(self, worker_id: str) -> Optional[Dict[str, Any]]:
         response = self.session.post(
             f"{self.config.control_plane_url}/internal/v1/jobs/claim",
-            headers=self.headers,
+            headers=self._headers(),
             json={
                 "workerId": worker_id,
                 "capabilities": self.config.capabilities,
@@ -88,7 +144,7 @@ class JobClient:
     def heartbeat(self, job: Dict[str, Any]) -> None:
         response = self.session.post(
             self._job_url(job, "heartbeat"),
-            headers=self.headers,
+            headers=self._headers(job),
             json={"leaseToken": job["leaseToken"]},
             timeout=(3, 10),
         )
@@ -102,7 +158,7 @@ class JobClient:
             try:
                 response = self.session.post(
                     self._job_url(job, "complete"),
-                    headers=self.headers,
+                    headers=self._headers(job),
                     json={"leaseToken": job["leaseToken"], "output": output},
                     timeout=(3, 30),
                 )
@@ -123,7 +179,7 @@ class JobClient:
     def fail(self, job: Dict[str, Any], code: str, message: str, retryable: bool) -> None:
         response = self.session.post(
             self._job_url(job, "fail"),
-            headers=self.headers,
+            headers=self._headers(job),
             json={
                 "leaseToken": job["leaseToken"],
                 "errorCode": code,
@@ -186,6 +242,9 @@ def run_claimed_job(client: JobClient, config: WorkerConfig, job: Dict[str, Any]
     last_heartbeat_success = started_at
     next_heartbeat_at = started_at + config.heartbeat_seconds
     child_result = None
+    job_type = job["jobType"]
+    outcome = "worker_error"
+    ACTIVE_JOBS.labels(job_type=job_type).inc()
 
     try:
         while child_result is None:
@@ -234,8 +293,10 @@ def run_claimed_job(client: JobClient, config: WorkerConfig, job: Dict[str, Any]
 
         if child_result.get("ok"):
             client.complete(job, child_result["output"])
+            outcome = "succeeded"
             LOG.info(
-                "job_succeeded job_id=%s type=%s attempt=%s duration_ms=%d",
+                "job_succeeded trace_id=%s job_id=%s type=%s attempt=%s duration_ms=%d",
+                job.get("traceId", "none"),
                 job["jobId"],
                 job["jobType"],
                 job["attempt"],
@@ -245,7 +306,8 @@ def run_claimed_job(client: JobClient, config: WorkerConfig, job: Dict[str, Any]
 
         message = child_result.get("error") or "solver child failed"
         LOG.error(
-            "job_failed job_id=%s type=%s error_type=%s error=%s\n%s",
+            "job_failed trace_id=%s job_id=%s type=%s error_type=%s error=%s\n%s",
+            job.get("traceId", "none"),
             job["jobId"],
             job["jobType"],
             child_result.get("errorType"),
@@ -253,25 +315,35 @@ def run_claimed_job(client: JobClient, config: WorkerConfig, job: Dict[str, Any]
             child_result.get("traceback", ""),
         )
         client.fail(job, child_result.get("errorType", "SOLVER_ERROR"), message, True)
+        outcome = "failed"
     except LeaseLost:
+        outcome = "lease_lost"
         terminate_process(process)
         raise
     except CompletionUncertain:
         # The control plane may already have committed success. Leave the lease
         # untouched; the idempotent complete endpoint or lease reaper resolves it.
+        outcome = "completion_uncertain"
         raise
     except InterruptedError as error:
+        outcome = "shutdown" if STOP_EVENT.is_set() else "interrupted"
         terminate_process(process)
         if not STOP_EVENT.is_set():
             client.fail(job, "WORKER_INTERRUPTED", str(error), True)
     except TimeoutError as error:
+        outcome = "timeout"
         terminate_process(process)
         client.fail(job, "SOLVER_TIMEOUT", str(error), True)
     except Exception as error:
+        outcome = "worker_error"
         terminate_process(process)
         client.fail(job, type(error).__name__, str(error), True)
         raise
     finally:
+        duration = time.monotonic() - started_at
+        JOBS.labels(job_type=job_type, outcome=outcome).inc()
+        JOB_DURATION.labels(job_type=job_type, outcome=outcome).observe(duration)
+        ACTIVE_JOBS.labels(job_type=job_type).dec()
         result_queue.close()
 
 
@@ -294,7 +366,8 @@ def worker_loop(config: WorkerConfig, slot: int) -> None:
                 STOP_EVENT.wait(config.poll_seconds + random.uniform(0, 0.25))
                 continue
             LOG.info(
-                "job_claimed job_id=%s task_id=%s type=%s attempt=%s worker=%s",
+                "job_claimed trace_id=%s job_id=%s task_id=%s type=%s attempt=%s worker=%s",
+                job.get("traceId", "none"),
                 job["jobId"],
                 job["taskId"],
                 job["jobType"],
@@ -305,6 +378,7 @@ def worker_loop(config: WorkerConfig, slot: int) -> None:
         except LeaseLost as error:
             LOG.warning("%s", error)
         except requests.RequestException as error:
+            CONTROL_PLANE_ERRORS.labels(operation="worker_loop").inc()
             LOG.warning("control_plane_unavailable worker=%s error=%s", worker_id, error)
             STOP_EVENT.wait(min(5.0, config.poll_seconds * 2))
         except Exception:
@@ -323,13 +397,16 @@ def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
     config = WorkerConfig.from_env()
+    metrics_port = int(os.getenv("WORKER_METRICS_PORT", "9108"))
+    start_http_server(metrics_port)
     signal.signal(signal.SIGTERM, request_shutdown)
     signal.signal(signal.SIGINT, request_shutdown)
     LOG.info(
-        "worker_started worker_id=%s concurrency=%d capabilities=%s",
+        "worker_started worker_id=%s concurrency=%d capabilities=%s metrics_port=%d",
         config.worker_id,
         config.concurrency,
         ",".join(config.capabilities),
+        metrics_port,
     )
 
     threads = [

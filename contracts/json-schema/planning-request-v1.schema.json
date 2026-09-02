@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://packing.local/contracts/planning-request-v1.schema.json",
+  "title": "PlanningRequestV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["query"],
+  "properties": {
+    "query": {"type": "string", "minLength": 1, "maxLength": 4000},
+    "orderContext": {"type": "object"},
+    "topK": {"type": "integer", "minimum": 1, "maximum": 10, "default": 4}
+  }
+}

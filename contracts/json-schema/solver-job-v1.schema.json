@@ -5,6 +5,7 @@
   "type": "object",
   "required": [
     "jobId",
+    "traceId",
     "taskId",
     "jobType",
     "payload",
@@ -15,6 +16,7 @@
   ],
   "properties": {
     "jobId": {"type": "string", "format": "uuid"},
+    "traceId": {"type": "string", "minLength": 8, "maxLength": 64},
     "taskId": {"type": "integer", "minimum": 1},
     "jobType": {
       "type": "string",

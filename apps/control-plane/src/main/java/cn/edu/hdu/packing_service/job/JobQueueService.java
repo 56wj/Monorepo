@@ -1,10 +1,12 @@
 package cn.edu.hdu.packing_service.job;
 
 import cn.edu.hdu.packing_service.job.dto.ClaimJobRequest;
+import cn.edu.hdu.packing_service.observability.JobQueueMetrics;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,15 +22,18 @@ public class JobQueueService {
     private final JobQueueProperties properties;
     private final JobResultHandler resultHandler;
     private final ObjectMapper objectMapper;
+    private final JobQueueMetrics metrics;
 
     public JobQueueService(PackingJobMapper mapper,
                            JobQueueProperties properties,
                            JobResultHandler resultHandler,
-                           ObjectMapper objectMapper) {
+                           ObjectMapper objectMapper,
+                           JobQueueMetrics metrics) {
         this.mapper = mapper;
         this.properties = properties;
         this.resultHandler = resultHandler;
         this.objectMapper = objectMapper;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -36,6 +41,7 @@ public class JobQueueService {
         LocalDateTime now = LocalDateTime.now();
         PackingJob job = new PackingJob();
         job.setPublicId(UUID.randomUUID().toString());
+        job.setTraceId(currentTraceId());
         job.setTaskId(taskId);
         job.setJobType(jobType.name());
         job.setStatus(JobStatus.QUEUED.name());
@@ -48,8 +54,10 @@ public class JobQueueService {
         job.setCreatedAt(now);
         job.setUpdatedAt(now);
         job.setVersion(0);
-        mapper.insertIdempotent(job);
-        return mapper.findById(job.getId());
+        int inserted = mapper.insertIdempotent(job);
+        PackingJob persisted = mapper.findById(job.getId());
+        if (inserted == 1) metrics.enqueued(persisted);
+        return persisted;
     }
 
     @Transactional
@@ -71,7 +79,9 @@ public class JobQueueService {
         if (updated != 1) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "job was claimed concurrently");
         }
-        return mapper.findById(candidate.getId());
+        PackingJob claimed = mapper.findById(candidate.getId());
+        metrics.claimed(claimed, now);
+        return claimed;
     }
 
     @Transactional
@@ -82,6 +92,7 @@ public class JobQueueService {
         if (updated != 1) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "job lease is missing or expired");
         }
+        metrics.heartbeat();
         return expiresAt;
     }
 
@@ -99,6 +110,7 @@ public class JobQueueService {
         if (updated != 1) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "job changed while completing");
         }
+        metrics.completed(job, "succeeded", now);
     }
 
     @Transactional
@@ -117,11 +129,13 @@ public class JobQueueService {
             LocalDateTime availableAt = now.plusSeconds(retryDelaySeconds(job.getAttempt()));
             ensureOne(mapper.retry(job.getId(), job.getVersion(), availableAt,
                     normalizedCode, normalizedMessage, now));
+            metrics.retried(job, "solver_failure");
         } else {
             requireTransition(JobStatus.RUNNING, JobStatus.DEAD_LETTER);
             ensureOne(mapper.deadLetter(job.getId(), job.getVersion(),
                     normalizedCode, normalizedMessage, now));
             resultHandler.handleTerminalFailure(job, normalizedMessage);
+            metrics.completed(job, "dead_letter", now);
         }
         return mapper.findById(job.getId());
     }
@@ -156,15 +170,18 @@ public class JobQueueService {
     private int reclaimExpiredLocked(LocalDateTime now) {
         List<PackingJob> expired = mapper.lockExpiredLeases(now, properties.getReaperBatchSize());
         for (PackingJob job : expired) {
+            metrics.leaseExpired(job);
             if (job.getAttempt() < job.getMaxAttempts()) {
                 requireTransition(JobStatus.RUNNING, JobStatus.RETRY_WAIT);
                 ensureOne(mapper.retry(job.getId(), job.getVersion(), now, "LEASE_EXPIRED",
                         "worker heartbeat expired", now));
+                metrics.retried(job, "lease_expired");
             } else {
                 requireTransition(JobStatus.RUNNING, JobStatus.DEAD_LETTER);
                 ensureOne(mapper.deadLetter(job.getId(), job.getVersion(), "LEASE_EXPIRED",
                         "worker heartbeat expired after maximum attempts", now));
                 resultHandler.handleTerminalFailure(job, "worker heartbeat expired after maximum attempts");
+                metrics.completed(job, "dead_letter", now);
             }
         }
         return expired.size();
@@ -224,5 +241,10 @@ public class JobQueueService {
 
     private String truncate(String value, int limit) {
         return value.length() <= limit ? value : value.substring(0, limit);
+    }
+
+    private String currentTraceId() {
+        String traceId = MDC.get("traceId");
+        return traceId == null ? UUID.randomUUID().toString().replace("-", "") : traceId;
     }
 }

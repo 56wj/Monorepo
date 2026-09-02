@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ClaimedJobResponse {
     private String jobId;
+    private String traceId;
     private Integer taskId;
     private String jobType;
     private JsonNode payload;
@@ -22,6 +23,7 @@ public class ClaimedJobResponse {
     public static ClaimedJobResponse from(PackingJob job, JsonNode payload) {
         return new ClaimedJobResponse(
                 job.getPublicId(),
+                job.getTraceId(),
                 job.getTaskId(),
                 job.getJobType(),
                 payload,

@@ -1,0 +1,127 @@
+services:
+  mysql:
+    image: mysql:8.0.36
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DB:-db_kindlead}
+      MYSQL_USER: ${MYSQL_USER:-packing}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local-root-change-me}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    ports:
+      - "${MYSQL_EXPOSE_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-local-root-change-me}"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  control-plane:
+    build:
+      context: ../../apps/control-plane
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: ${MYSQL_DB:-db_kindlead}
+      MYSQL_USER: ${MYSQL_USER:-packing}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      JOB_WORKER_TOKEN: ${JOB_WORKER_TOKEN:-local-dev-worker-token}
+      PACKING_DATA_DIR: /data/packing
+      QUEUE_METRICS_REFRESH_MS: ${QUEUE_METRICS_REFRESH_MS:-15000}
+      MANAGEMENT_PORT: 9100
+    ports:
+      - "8101:8101"
+    expose:
+      - "9100"
+    volumes:
+      - packing-data:/data/packing
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  solver-worker:
+    build:
+      context: ../../services/solver-worker
+    environment:
+      INTERNAL_API_BASE_URL: http://control-plane:8101
+      JOB_WORKER_TOKEN: ${JOB_WORKER_TOKEN:-local-dev-worker-token}
+      WORKER_ID: ${WORKER_ID:-solver-compose}
+      WORKER_CAPABILITIES: ${WORKER_CAPABILITIES:-PALLET_FIRST,PALLET_SECOND,SUSPEND_FIRST}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      JOB_LEASE_SECONDS: ${JOB_LEASE_SECONDS:-90}
+      JOB_HEARTBEAT_SECONDS: ${JOB_HEARTBEAT_SECONDS:-20}
+      JOB_MAX_RUNTIME_SECONDS: ${JOB_MAX_RUNTIME_SECONDS:-3000}
+      PUBLIC_ASSET_BASE_URL: ${PUBLIC_ASSET_BASE_URL:-http://localhost:5001}
+      WORKER_METRICS_PORT: 9108
+    expose:
+      - "9108"
+    volumes:
+      - solver-assets:/app/static/images
+    depends_on:
+      - control-plane
+    restart: unless-stopped
+
+  asset-server:
+    build:
+      context: ../../services/solver-worker
+    command: ["python", "asset_server.py"]
+    environment:
+      ASSET_SERVER_PORT: 5001
+    ports:
+      - "5001:5001"
+    volumes:
+      - solver-assets:/app/static/images:ro
+    restart: unless-stopped
+
+  planning-agent:
+    build:
+      context: ../../services/planning-agent
+    ports:
+      - "${PLANNING_AGENT_PORT:-8200}:8200"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8200/healthz', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - control-plane
+      - solver-worker
+      - planning-agent
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  packing-data:
+  solver-assets:
+  prometheus-data:
+  grafana-data:

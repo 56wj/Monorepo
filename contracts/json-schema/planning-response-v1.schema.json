@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://packing.local/contracts/planning-response-v1.schema.json",
+  "title": "PlanningResponseV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "traceId", "requestHash", "ruleVersion", "corpusHash", "constraints",
+    "missingRequiredFields", "violations", "warnings", "decision", "citations",
+    "groundedExplanation", "auditTrail"
+  ],
+  "properties": {
+    "traceId": {"type": "string", "minLength": 8, "maxLength": 64},
+    "requestHash": {"type": "string", "pattern": "^[a-f0-9]{24}$"},
+    "ruleVersion": {"type": "string"},
+    "corpusHash": {"type": "string", "pattern": "^[a-f0-9]{16}$"},
+    "constraints": {"type": "object"},
+    "missingRequiredFields": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "violations": {"type": "array", "items": {"type": "string"}},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jobType", "executable", "idempotencyKey"],
+      "properties": {
+        "jobType": {"enum": ["PALLET_FIRST", "PALLET_SECOND", "SUSPEND_FIRST"]},
+        "executable": {"type": "boolean"},
+        "idempotencyKey": {"type": "string", "minLength": 8}
+      }
+    },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["document_id", "title", "text", "source", "version", "score"],
+        "properties": {
+          "document_id": {"type": "string"},
+          "title": {"type": "string"},
+          "text": {"type": "string"},
+          "source": {"type": "string"},
+          "version": {"type": "string"},
+          "score": {"type": "number", "minimum": 0}
+        }
+      }
+    },
+    "groundedExplanation": {"type": "string"},
+    "auditTrail": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["state", "status"],
+        "properties": {
+          "state": {"enum": ["INTAKE", "RETRIEVE", "EXTRACT", "VALIDATE", "ROUTE"]},
+          "status": {"type": "string"}
+        }
+      }
+    }
+  }
+}

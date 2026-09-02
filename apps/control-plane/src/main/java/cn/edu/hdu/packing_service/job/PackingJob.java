@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 public class PackingJob {
     private Long id;
     private String publicId;
+    private String traceId;
     private Integer taskId;
     private String jobType;
     private String status;

@@ -11,7 +11,7 @@ spring:
     password: ${MYSQL_PASSWORD:change-me}
     driver-class-name: com.mysql.cj.jdbc.Driver
   application:
-    name: packing-service
+    name: packing-control-plane
 # Python API 服务配置（路径改为 Linux 风格）
 packing-python-api:
   host: ${PYTHON_API_HOST:http://host.docker.internal}

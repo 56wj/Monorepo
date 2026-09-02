@@ -1,0 +1,13 @@
+{
+  "planningAgent": {
+    "maxErrorRate": 0.01,
+    "maxP95Ms": 250,
+    "maxP99Ms": 500,
+    "minThroughputRps": 20
+  },
+  "jobControlPlane": {
+    "maxQueueDelayP95Seconds": 5,
+    "maxLeaseExpiryRate": 0.01,
+    "maxDeadLetterRate": 0.005
+  }
+}

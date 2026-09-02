@@ -60,6 +60,7 @@ class WorkerContractTest(unittest.TestCase):
             "http://control-plane:8101/internal/v1/jobs/claim", url
         )
         self.assertEqual("test-token", kwargs["headers"]["X-Worker-Token"])
+        self.assertEqual(32, len(kwargs["headers"]["X-Trace-Id"]))
         self.assertEqual(["PALLET_FIRST"], kwargs["json"]["capabilities"])
         self.assertEqual(90, kwargs["json"]["leaseSeconds"])
 
@@ -71,6 +72,16 @@ class WorkerContractTest(unittest.TestCase):
         client = JobClient(config(), FakeSession([FakeResponse(409)]))
         with self.assertRaises(LeaseLost):
             client.heartbeat({"jobId": "job-1", "leaseToken": "lease-1"})
+
+    def test_callback_propagates_job_trace_id(self):
+        session = FakeSession([FakeResponse(200)])
+        client = JobClient(config(), session)
+        client.heartbeat({
+            "jobId": "job-1",
+            "leaseToken": "lease-1",
+            "traceId": "trace-12345678",
+        })
+        self.assertEqual("trace-12345678", session.calls[0][1]["headers"]["X-Trace-Id"])
 
     def test_completion_retries_an_uncertain_network_response(self):
         session = FakeSession([

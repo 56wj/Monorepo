@@ -1,0 +1,41 @@
+groups:
+  - name: packing-platform
+    rules:
+      - alert: PackingControlPlaneDown
+        expr: up{job="packing-control-plane"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: Packing control plane is unavailable
+
+      - alert: PackingSolverWorkerDown
+        expr: up{job="packing-solver-worker"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: All solver worker metrics endpoints are unavailable
+
+      - alert: PackingQueueBacklog
+        expr: sum(packing_job_queue_depth{status=~"QUEUED|RETRY_WAIT"}) > 100
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: Durable packing queue backlog exceeds 100 jobs
+
+      - alert: PackingLeaseExpiryBurst
+        expr: sum(rate(packing_job_lease_expired_total[5m])) > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: Solver leases are expiring repeatedly
+
+      - alert: PackingDeadLetterRateHigh
+        expr: >-
+          sum(rate(packing_jobs_completed_total{outcome="dead_letter"}[10m]))
+          /
+          clamp_min(sum(rate(packing_jobs_completed_total[10m])), 0.001)
+          > 0.005
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: Dead-letter ratio exceeds the 0.5 percent SLO

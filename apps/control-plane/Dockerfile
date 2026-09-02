@@ -27,7 +27,7 @@ RUN mkdir -p /data/packing/source /data/packing/result /data/packing/middle /dat
 COPY --from=builder /app/target/packing_service-0.0.2-SNAPSHOT.jar app.jar
 
 # 暴露服务端口
-EXPOSE 8101
+EXPOSE 8101 9100
 
 # 启动时激活 docker profile
 ENTRYPOINT ["java", "-Dspring.profiles.active=docker", "-jar", "app.jar"]

@@ -13,13 +13,13 @@ import java.util.List;
 public interface PackingJobMapper {
 
     @Insert("insert into packing_job " +
-            "(public_id, task_id, job_type, status, payload_json, priority, attempt, max_attempts, " +
+            "(public_id, trace_id, task_id, job_type, status, payload_json, priority, attempt, max_attempts, " +
             "available_at, idempotency_key, created_at, updated_at, version) values " +
-            "(#{publicId}, #{taskId}, #{jobType}, #{status}, #{payloadJson}, #{priority}, #{attempt}, " +
+            "(#{publicId}, #{traceId}, #{taskId}, #{jobType}, #{status}, #{payloadJson}, #{priority}, #{attempt}, " +
             "#{maxAttempts}, #{availableAt}, #{idempotencyKey}, #{createdAt}, #{updatedAt}, #{version}) " +
             "on duplicate key update id = last_insert_id(id), updated_at = updated_at")
     @org.apache.ibatis.annotations.Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
-    void insertIdempotent(PackingJob job);
+    int insertIdempotent(PackingJob job);
 
     @Select("select * from packing_job where id = #{id}")
     PackingJob findById(Long id);
@@ -29,6 +29,9 @@ public interface PackingJobMapper {
 
     @Select("select * from packing_job where task_id = #{taskId} order by created_at desc limit 1")
     PackingJob findLatestByTaskId(Integer taskId);
+
+    @Select("select status, count(*) as count from packing_job group by status")
+    List<JobStatusCount> countByStatus();
 
     PackingJob lockNextClaimable(@Param("jobTypes") List<String> jobTypes,
                                  @Param("now") LocalDateTime now);

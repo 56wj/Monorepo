@@ -35,6 +35,32 @@ logging:
     root: INFO
   file:
     name: ${LOG_FILE:/tmp/packing/logs/control-plane.log}
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} level=%-5level service=control-plane trace_id=%X{traceId:-none} logger=%logger{36} msg=%msg%n"
+    file: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} level=%-5level service=control-plane trace_id=%X{traceId:-none} logger=%logger{36} msg=%msg%n"
+
+management:
+  server:
+    port: ${MANAGEMENT_PORT:9100}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        packing.job.queue.delay: true
+        packing.job.execution: true
+
+observability:
+  queue-refresh-ms: ${QUEUE_METRICS_REFRESH_MS:15000}
 
 job-queue:
   worker-token: ${JOB_WORKER_TOKEN:local-dev-worker-token}

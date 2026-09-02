@@ -1,0 +1,69 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Queued / Retry Wait",
+      "targets": [{"expr": "sum(packing_job_queue_depth{status=~\"QUEUED|RETRY_WAIT\"})", "refId": "A"}],
+      "gridPos": {"h": 7, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Active Solver Jobs",
+      "targets": [{"expr": "sum(packing_worker_active_jobs)", "refId": "A"}],
+      "gridPos": {"h": 7, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "10m Success Rate",
+      "targets": [{"expr": "sum(rate(packing_jobs_completed_total{outcome=\"succeeded\"}[10m])) / clamp_min(sum(rate(packing_jobs_completed_total[10m])), 0.001)", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}},
+      "gridPos": {"h": 7, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Agent p95 Latency",
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(packing_agent_plan_duration_seconds_bucket[5m])) by (le))", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 7, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "Queue Depth by State",
+      "targets": [{"expr": "packing_job_queue_depth", "legendFormat": "{{status}}", "refId": "A"}],
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 7}
+    },
+    {
+      "type": "timeseries",
+      "title": "Queue Delay p95 by Job Type",
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(packing_job_queue_delay_seconds_bucket[5m])) by (le, job_type))", "legendFormat": "{{job_type}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 7}
+    },
+    {
+      "type": "timeseries",
+      "title": "Solver Duration p95",
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(packing_worker_job_duration_seconds_bucket[10m])) by (le, job_type, outcome))", "legendFormat": "{{job_type}} {{outcome}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 16}
+    },
+    {
+      "type": "timeseries",
+      "title": "Retries / Lease Expiry",
+      "targets": [
+        {"expr": "sum(rate(packing_jobs_retried_total[5m])) by (reason)", "legendFormat": "retry {{reason}}", "refId": "A"},
+        {"expr": "sum(rate(packing_job_lease_expired_total[5m]))", "legendFormat": "lease expired", "refId": "B"}
+      ],
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 16}
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["packing", "jobs", "agent"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "Packing Platform M2",
+  "uid": "packing-platform-m2",
+  "version": 1
+}

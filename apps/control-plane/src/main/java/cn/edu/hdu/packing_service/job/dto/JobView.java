@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class JobView {
     private String jobId;
+    private String traceId;
     private Integer taskId;
     private String jobType;
     private String status;
@@ -22,7 +23,7 @@ public class JobView {
     private LocalDateTime finishedAt;
 
     public static JobView from(PackingJob job) {
-        return new JobView(job.getPublicId(), job.getTaskId(), job.getJobType(), job.getStatus(),
+        return new JobView(job.getPublicId(), job.getTraceId(), job.getTaskId(), job.getJobType(), job.getStatus(),
                 job.getAttempt(), job.getMaxAttempts(), job.getErrorCode(), job.getErrorMessage(),
                 job.getCreatedAt(), job.getStartedAt(), job.getFinishedAt());
     }

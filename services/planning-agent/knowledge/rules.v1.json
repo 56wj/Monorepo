@@ -1,0 +1,60 @@
+{
+  "documents": [
+    {
+      "document_id": "RULE-WEIGHT-001",
+      "title": "Maximum load constraint",
+      "text": "The sum of roll weights assigned to one carrier must not exceed max_weight_kg. Single roll weight must also be no greater than the carrier limit.",
+      "tags": ["最大承重", "载重上限", "重量", "weight", "pallet"],
+      "source": "synthetic-packing-rulebook/weight",
+      "version": "2026.09"
+    },
+    {
+      "document_id": "RULE-HEIGHT-001",
+      "title": "Maximum stacking height",
+      "text": "The computed stack envelope, including support material, must stay within max_height_mm before a plan is released.",
+      "tags": ["最大高度", "高度上限", "堆叠", "height"],
+      "source": "synthetic-packing-rulebook/height",
+      "version": "2026.09"
+    },
+    {
+      "document_id": "RULE-MIX-001",
+      "title": "Mixed batch isolation",
+      "text": "When allow_mixed_batch is false, rolls from different batches must be partitioned before solver dispatch and validated independently.",
+      "tags": ["禁止混装", "批次", "隔离", "mixed batch"],
+      "source": "synthetic-packing-rulebook/batch-isolation",
+      "version": "2026.09"
+    },
+    {
+      "document_id": "RULE-DIAMETER-001",
+      "title": "Roll diameter clearance",
+      "text": "Roll diameter and clearance determine candidate placement geometry. Diameter is normalized to millimetres before solving.",
+      "tags": ["纸卷直径", "外径", "间隙", "diameter"],
+      "source": "synthetic-packing-rulebook/geometry",
+      "version": "2026.09"
+    },
+    {
+      "document_id": "RULE-BALANCE-001",
+      "title": "Load balance validation",
+      "text": "The independent validator checks center-of-mass deviation and rejects unstable layouts even when geometric utilization is high.",
+      "tags": ["重心", "稳定性", "平衡", "利用率", "balance"],
+      "source": "synthetic-packing-rulebook/balance",
+      "version": "2026.09"
+    },
+    {
+      "document_id": "ROUTE-SUSPEND-001",
+      "title": "Suspended packing route",
+      "text": "Suspended or hanging requests route to SUSPEND_FIRST; pallet requests route to PALLET_FIRST unless an explicit second-stage request is present.",
+      "tags": ["悬挂", "吊装", "SUSPEND_FIRST", "routing"],
+      "source": "synthetic-packing-runbook/routing",
+      "version": "2026.09"
+    },
+    {
+      "document_id": "SLO-QUEUE-001",
+      "title": "Queue service objectives",
+      "text": "Queue delay and solver duration are separate service indicators. Retry, dead-letter and lease-expiry rates are monitored by job type.",
+      "tags": ["队列", "延迟", "重试", "dead letter", "SLO"],
+      "source": "synthetic-packing-runbook/slo",
+      "version": "2026.09"
+    }
+  ]
+}
