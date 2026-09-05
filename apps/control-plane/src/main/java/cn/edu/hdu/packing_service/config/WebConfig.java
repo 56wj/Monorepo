@@ -25,7 +25,8 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(loginInterceptor).excludePathPatterns("/user/login" , "/user/register" ,
                 "/specification/queryAll","/specification/palletroll/queryByPalletId","/specification/tube/queryAll",
                 "/specification/pallet/queryById","/specification/truck/queryAll","/externalApi/stock/push_data",
-                "/internal/v1/jobs/**", "/actuator/health/**", "/actuator/prometheus", "/actuator/info");
+                "/internal/v1/jobs/**", "/actuator/health/**", "/actuator/prometheus", "/actuator/info",
+                "/error");
 
     }
 }

@@ -63,8 +63,6 @@ public class JobQueueService {
     @Transactional
     public PackingJob claim(ClaimJobRequest request) {
         LocalDateTime now = LocalDateTime.now();
-        reclaimExpiredLocked(now);
-
         List<String> capabilities = validatedCapabilities(request.getCapabilities());
         PackingJob candidate = mapper.lockNextClaimable(capabilities, now);
         if (candidate == null) return null;

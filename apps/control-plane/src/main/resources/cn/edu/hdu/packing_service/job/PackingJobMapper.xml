@@ -13,7 +13,7 @@
         <foreach collection="jobTypes" item="jobType" open="(" separator="," close=")">
             #{jobType}
         </foreach>
-        order by priority desc, created_at asc
+        order by status asc, available_at asc, priority desc, created_at asc, id asc
         limit 1
         for update skip locked
     </select>

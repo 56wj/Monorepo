@@ -15,6 +15,7 @@ Enterprise-oriented monorepo for roll packing optimization, long-running compute
 
 M1 replaces the Java thread/process-per-request dispatch path with a MySQL-backed leased job control plane and a configurable concurrent Python worker.
 M2 adds a replayable Planning Agent, BM25 rule retrieval, cross-service trace IDs, Prometheus/Grafana observability, agent eval gates, and concurrent load testing.
+M3 adds repeatable long-task fault injection, fixes concurrent claim deadlocks, and records same-machine before/after evidence.
 
 ## M1 highlights
 
@@ -38,6 +39,19 @@ See `docs/migration/m1-job-control-plane.md` for verification and local topology
 
 See `docs/migration/m2-agent-observability.md` for architecture, commands, metrics, and verification.
 
+## M3 highlights
+
+- Real MySQL 8 + Spring HTTP benchmark for claim, duplicate completion, expired
+  Lease recovery, stale Worker writes and child-process timeout isolation.
+- Claim/Reaper transaction separation and index-aligned `SKIP LOCKED` ordering.
+- 32-concurrency/1,000-job result: 673.6 jobs/s, p95 85.9 ms, 100% claim
+  success and zero duplicate claims.
+- 20/20 injected Worker crashes recovered with a 10.13-second p95 under a
+  10-second test Lease; 20/20 stale writes were rejected.
+
+See `docs/migration/m3-job-reliability-quantification.md` for the baseline,
+optimized report, limitations and resume-ready evidence.
+
 ## Repository policy
 
-Real orders, database dumps, internal addresses, credentials, generated artifacts, and customer files must not be committed. Use `.env.example` and `testdata/synthetic` for reproducible local development.
+Real orders, database dumps, internal addresses, credentials, generated runtime artifacts, and customer files must not be committed. Use `.env.example` and `testdata/synthetic` for reproducible local development. Versioned reports under `evals/**/results` are limited to synthetic benchmark evidence and contain no production data.

@@ -43,5 +43,14 @@ stateDiagram-v2
 
 - Restarted workers resume queued work instead of losing it.
 - Throughput scales with `WORKER_CONCURRENCY` and worker replica count.
+
+## Claim lock ordering
+
+Lease reaping runs in its own scheduled transaction rather than inside every
+claim transaction. The claim query follows the composite claim index order
+(`status`, `available_at`, descending `priority`, `created_at`, `id`) so MySQL
+can stop after locking one eligible row instead of filesorting and locking a
+large candidate set. This separation prevents the claim/update lock-order
+cycle observed under concurrent Worker polling.
 - Long calculations no longer occupy request or timeout threads in the Java process.
 - MySQL is an intentional M1 dependency; queue pressure will be measured before introducing a separate broker or workflow engine.

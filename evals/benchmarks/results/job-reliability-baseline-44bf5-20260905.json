@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-05T15:17:52+0800",
+  "environment": {
+    "kind": "local-docker-mysql-plus-local-jvm",
+    "mysql": "8.0.46",
+    "python": "3.9.13",
+    "leaseSeconds": 10,
+    "note": "Synthetic job payloads; real MySQL 8 row locks, HTTP control-plane, and production worker process-isolation path."
+  },
+  "concurrentClaim": {
+    "jobCount": 1000,
+    "concurrency": 32,
+    "elapsedSeconds": 2.982245,
+    "throughputRps": 332.3,
+    "claimed": 991,
+    "runningRows": 991,
+    "duplicateClaims": 0,
+    "errorCount": 9,
+    "httpStatusCounts": {
+      "200": 991,
+      "204": 1708,
+      "401": 9
+    },
+    "successRate": 0.991,
+    "latencyMs": {
+      "min": 13.623,
+      "p50": 66.957,
+      "p95": 261.777,
+      "p99": 338.874,
+      "max": 501.988
+    },
+    "sampleErrors": [
+      "claim status=401 body=None",
+      "claim status=401 body=None",
+      "claim status=401 body=None",
+      "claim status=401 body=None",
+      "claim status=401 body=None"
+    ],
+    "passed": false
+  },
+  "idempotentCompletion": {
+    "logicalJobs": 100,
+    "completionRequests": 184,
+    "duplicateRequestsInjected": 100,
+    "elapsedSeconds": 0.293389,
+    "requestThroughputRps": 627.154,
+    "succeededJobs": 92,
+    "businessSideEffects": 92,
+    "duplicateBusinessSideEffects": 0,
+    "idempotentConvergenceRate": 0.92,
+    "errorCount": 8,
+    "claimHttpStatusCounts": {
+      "200": 92,
+      "204": 440,
+      "401": 8
+    },
+    "latencyMs": {
+      "min": 15.66,
+      "p50": 48.502,
+      "p95": 62.95,
+      "p99": 73.304,
+      "max": 76.348
+    },
+    "sampleErrors": [
+      "claim status=401 body=None",
+      "claim status=401 body=None",
+      "claim status=401 body=None",
+      "claim status=401 body=None",
+      "claim status=401 body=None"
+    ],
+    "passed": false
+  },
+  "workerCrashRecovery": {
+    "jobsWithInjectedWorkerCrash": 20,
+    "leaseSeconds": 10,
+    "recoveredAndSucceeded": 20,
+    "secondAttemptRows": 20,
+    "recoverySuccessRate": 1.0,
+    "staleLeaseWritesAttempted": 20,
+    "staleLeaseWritesRejected": 0,
+    "staleLeaseRejectionRate": 0.0,
+    "staleLeaseHttpStatusCounts": {
+      "401": 20
+    },
+    "failureToReclaimMs": {
+      "min": 9873.926,
+      "p50": 9986.09,
+      "p95": 10089.644,
+      "p99": 10089.681,
+      "max": 10089.681
+    },
+    "scenarioElapsedSeconds": 10.195443,
+    "errorCount": 0,
+    "initialClaimHttpStatusCounts": {
+      "200": 20,
+      "204": 98
+    },
+    "sampleErrors": [],
+    "passed": false
+  },
+  "processIsolation": {
+    "totalJobs": 40,
+    "concurrency": 32,
+    "hangingJobsInjected": 8,
+    "healthyJobs": 32,
+    "healthyJobsSucceeded": 32,
+    "hungProcessesTerminated": 8,
+    "orphanedChildProcesses": [],
+    "healthyJobLatencyMs": {
+      "min": 187.373,
+      "p50": 539.988,
+      "p95": 689.398,
+      "p99": 720.297,
+      "max": 720.297
+    },
+    "timeoutTerminationLatencyMs": {
+      "min": 1018.766,
+      "p50": 1070.805,
+      "p95": 1265.289,
+      "p99": 1265.289,
+      "max": 1265.289
+    },
+    "scenarioElapsedSeconds": 1.266852,
+    "errorCount": 0,
+    "sampleErrors": [],
+    "passed": true
+  },
+  "verdict": {
+    "passed": false,
+    "checks": {
+      "concurrentClaim": false,
+      "idempotentCompletion": false,
+      "workerCrashRecovery": false,
+      "processIsolation": true
+    }
+  }
+}
