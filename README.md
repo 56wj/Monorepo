@@ -16,6 +16,11 @@ Enterprise-oriented monorepo for roll packing optimization, long-running compute
 M1 replaces the Java thread/process-per-request dispatch path with a MySQL-backed leased job control plane and a configurable concurrent Python worker.
 M2 adds a replayable Planning Agent, BM25 rule retrieval, cross-service trace IDs, Prometheus/Grafana observability, agent eval gates, and concurrent load testing.
 M3 adds repeatable long-task fault injection, fixes concurrent claim deadlocks, and records same-machine before/after evidence.
+M4 replaces job-completion database/WebSocket dual writes with a leased MySQL Transactional Outbox and cursor-based event replay.
+
+The remaining production roadmap prioritizes immutable solver-input snapshots,
+independent feasibility validation, object storage, security boundaries and
+repeatable integration/chaos gates.
 
 ## M1 highlights
 
@@ -51,6 +56,25 @@ See `docs/migration/m2-agent-observability.md` for architecture, commands, metri
 
 See `docs/migration/m3-job-reliability-quantification.md` for the baseline,
 optimized report, limitations and resume-ready evidence.
+
+## M4 highlights
+
+- Atomic business-state, job-state and Outbox event persistence.
+- Idempotent event identity and at-least-once delivery semantics.
+- `FOR UPDATE SKIP LOCKED` multi-replica dispatcher with short Leases.
+- Bounded exponential retry, expired-Lease recovery and dead-letter state.
+- Stable `eventId` in notifications plus authenticated cursor-based catch-up.
+- Prometheus lifecycle metrics and backlog/dead-letter alerts.
+
+See `docs/migration/m4-transactional-outbox.md` for delivery semantics,
+configuration, verification and operational boundaries.
+
+## Next production milestone
+
+See `docs/migration/m4-production-backend-roadmap.md` for the repository-specific
+gap analysis, implementation order, acceptance criteria and measurable resume
+evidence. It deliberately avoids adding Kafka, Redis or extra microservices
+before the current correctness and data-boundary gaps are closed.
 
 ## Repository policy
 

@@ -94,12 +94,27 @@ public class PalletPackingWebsocket {
     }
 
     public static void sendMessageByUserId(String userId, Result message) {
+        try {
+            sendMessageByUserIdOrThrow(userId, message);
+        } catch (Exception error) {
+            error.printStackTrace();
+        }
+    }
+
+    /**
+     * Outbox publication variant. Offline users are handled by durable cursor
+     * replay; failures on an existing live session are surfaced to the
+     * dispatcher so the same eventId can be retried.
+     */
+    public static int sendMessageByUserIdOrThrow(String userId, Result message) throws Exception {
         System.out.println(DateUtil.getNowTime() + "信息发送给用户" + userId);
-        if (isBlank(userId)) return;
+        if (isBlank(userId)) return 0;
 
         Set<String> clientSet = conns.get(userId);
-        if (clientSet == null) return;
+        if (clientSet == null) return 0;
 
+        Exception firstFailure = null;
+        int delivered = 0;
         for (String sid : clientSet) {
             Session session = clients.get(sid);
             if (session == null || !session.isOpen()) {
@@ -111,11 +126,14 @@ public class PalletPackingWebsocket {
                 synchronized (session) {
                     session.getBasicRemote().sendObject(message);
                 }
+                delivered++;
             } catch (IOException | EncodeException | RuntimeException error) {
                 removeSession(userId, sid, session);
-                error.printStackTrace();
+                if (firstFailure == null) firstFailure = error;
             }
         }
+        if (firstFailure != null) throw firstFailure;
+        return delivered;
     }
 
     @OnMessage

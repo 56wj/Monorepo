@@ -39,3 +39,17 @@ groups:
         labels: { severity: critical }
         annotations:
           summary: Dead-letter ratio exceeds the 0.5 percent SLO
+
+      - alert: PackingOutboxBacklog
+        expr: sum(packing_outbox_depth{status=~"PENDING|PUBLISHING"}) > 100
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: Durable task-event Outbox backlog exceeds 100 events
+
+      - alert: PackingOutboxDeadLetter
+        expr: sum(packing_outbox_depth{status="DEAD_LETTER"}) > 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: A durable task event exhausted its publication attempts

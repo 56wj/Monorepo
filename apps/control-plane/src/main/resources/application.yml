@@ -70,3 +70,12 @@ job-queue:
   retry-base-seconds: ${JOB_RETRY_BASE_SECONDS:10}
   reaper-batch-size: ${JOB_REAPER_BATCH_SIZE:100}
   reaper-interval-ms: ${JOB_REAPER_INTERVAL_MS:30000}
+
+outbox:
+  lease-seconds: ${OUTBOX_LEASE_SECONDS:30}
+  max-attempts: ${OUTBOX_MAX_ATTEMPTS:8}
+  retry-base-seconds: ${OUTBOX_RETRY_BASE_SECONDS:2}
+  dispatch-batch-size: ${OUTBOX_DISPATCH_BATCH_SIZE:50}
+  dispatch-interval-ms: ${OUTBOX_DISPATCH_INTERVAL_MS:500}
+  reaper-batch-size: ${OUTBOX_REAPER_BATCH_SIZE:100}
+  reaper-interval-ms: ${OUTBOX_REAPER_INTERVAL_MS:30000}

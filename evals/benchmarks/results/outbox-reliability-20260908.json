@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1.0",
+  "date": "2026-09-08",
+  "scope": "Synthetic local Transactional Outbox acceptance",
+  "environment": {
+    "database": "MySQL 8.0.41",
+    "controlPlane": "Spring Boot 2.6.13",
+    "publisher": "WebSocket adapter with no connected client"
+  },
+  "checks": {
+    "flyway": {
+      "passed": true,
+      "validatedMigrations": 4,
+      "currentVersion": "4"
+    },
+    "claimIndex": {
+      "passed": true,
+      "index": "idx_packing_outbox_claim",
+      "access": "index range scan",
+      "sortNodeObserved": false
+    },
+    "atomicCompletion": {
+      "passed": true,
+      "httpStatus": 204,
+      "legacyTaskState": "小托计算完成",
+      "jobState": "SUCCEEDED",
+      "outboxStateAfterCommit": "PENDING",
+      "tracePropagated": true,
+      "payloadEventIdMatchedRow": true
+    },
+    "duplicateCompletion": {
+      "passed": true,
+      "requests": 2,
+      "logicalEvents": 1,
+      "distinctDeduplicationKeys": 1
+    },
+    "restartRecovery": {
+      "passed": true,
+      "beforeRestart": "PENDING",
+      "afterRestart": "PUBLISHED",
+      "attempts": 1,
+      "leaseCleared": true
+    },
+    "publishFailure": {
+      "passed": true,
+      "configuredMaxAttempts": 2,
+      "observedAttempts": 2,
+      "terminalState": "DEAD_LETTER",
+      "retryMetricObserved": true,
+      "deadLetterMetricObserved": true
+    },
+    "expiredLeaseRecovery": {
+      "passed": true,
+      "initialState": "PUBLISHING",
+      "initialAttempt": 1,
+      "finalState": "PUBLISHED",
+      "finalAttempt": 2,
+      "leaseCleared": true,
+      "leaseExpiredMetricObserved": true
+    },
+    "cursorCatchup": {
+      "passed": true,
+      "httpStatus": 200,
+      "userScoped": true,
+      "orderedCursorReturned": true,
+      "payloadEventIdMatchedRow": true
+    },
+    "metrics": {
+      "passed": true,
+      "publishedCounterObserved": true,
+      "publishDelayHistogramObserved": true,
+      "zeroFilledDepthStatesObserved": true
+    }
+  }
+}
