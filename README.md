@@ -16,7 +16,7 @@ Enterprise-oriented monorepo for roll packing optimization, long-running compute
 M1 replaces the Java thread/process-per-request dispatch path with a MySQL-backed leased job control plane and a configurable concurrent Python worker.
 M2 adds a replayable Planning Agent, BM25 rule retrieval, cross-service trace IDs, Prometheus/Grafana observability, agent eval gates, and concurrent load testing.
 M3 adds repeatable long-task fault injection, fixes concurrent claim deadlocks, and records same-machine before/after evidence.
-M4 replaces job-completion database/WebSocket dual writes with a leased MySQL Transactional Outbox and cursor-based event replay.
+M4 uses committed task state as the source of truth, with post-commit WebSocket hints and authenticated HTTP polling.
 
 The remaining production roadmap prioritizes immutable solver-input snapshots,
 independent feasibility validation, object storage, security boundaries and
@@ -59,15 +59,15 @@ optimized report, limitations and resume-ready evidence.
 
 ## M4 highlights
 
-- Atomic business-state, job-state and Outbox event persistence.
-- Idempotent event identity and at-least-once delivery semantics.
-- `FOR UPDATE SKIP LOCKED` multi-replica dispatcher with short Leases.
-- Bounded exponential retry, expired-Lease recovery and dead-letter state.
-- Stable `eventId` in notifications plus authenticated cursor-based catch-up.
-- Prometheus lifecycle metrics and backlog/dead-letter alerts.
+- MySQL job state and computation results remain durable; leases, retries and worker recovery are unchanged.
+- Small best-effort WebSocket hints run on a bounded executor only after commit.
+- The browser polls `/task/job?taskId=...&includeResult=true`, refreshes on reconnect and stops on terminal states.
+- The task identifier/stage in the URL restores tracking on page reload; results are read only after ownership checks.
+- Notification failures never turn a committed computation into a failed worker callback.
 
-See `docs/migration/m4-transactional-outbox.md` for delivery semantics,
-configuration, verification and operational boundaries.
+See `docs/migration/m4-task-status-notifications.md` for API semantics, migration,
+verification and rollback. Historical benchmark results describe their recorded
+revision, not the current notification architecture.
 
 ## Next production milestone
 

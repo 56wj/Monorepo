@@ -101,11 +101,7 @@ public class PalletPackingWebsocket {
         }
     }
 
-    /**
-     * Outbox publication variant. Offline users are handled by durable cursor
-     * replay; failures on an existing live session are surfaced to the
-     * dispatcher so the same eventId can be retried.
-     */
+    /** Best-effort live notification. HTTP task queries recover missed updates. */
     public static int sendMessageByUserIdOrThrow(String userId, Result message) throws Exception {
         System.out.println(DateUtil.getNowTime() + "信息发送给用户" + userId);
         if (isBlank(userId)) return 0;

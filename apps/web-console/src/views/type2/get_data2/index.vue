@@ -237,7 +237,7 @@
         </el-tab-pane>
         <div style="display: flex; justify-content: center;">
           <el-form-item label-width="0px">
-            <el-button type="success" @click="uploadData" :loading="loading" :disabled="wsp">{{ loading ?
+            <el-button type="success" @click="uploadData" :loading="loading">{{ loading ?
       '计算中 ...'
       : '开始计算'
               }}</el-button>
@@ -292,9 +292,12 @@ import { palletDataCheck }from '@/utils/inputCheck'
 import { get_task } from '@/api/external'
 import { exit } from 'process'
 import HistoricalOrderExportDialog from '@/components/HistoricalOrderExportDialog'
+import taskStatusTracking from '@/mixins/taskStatusTracking'
 import ReconnectingWebSocket, { buildWebSocketUrl } from '@/utils/reconnectingWebSocket'
 
 export default {
+  mixins: [taskStatusTracking],
+  taskJobTypes: ['SUSPEND_FIRST'],
   name: 'get_data',
   components: { HistoricalOrderExportDialog },
   data() {
@@ -496,7 +499,7 @@ export default {
         try {
           const res = await post_al_first(data);
           console.log(res)
-          this.$data.taskId = res.data;
+          this.trackTask(res.data, 'SUSPEND_FIRST');
         } catch (error) {
           this.$data.loading = false;
           console.log(error)
@@ -852,6 +855,12 @@ export default {
         this.$message.error("二阶段提交失败，请重新提交")
       }
     },
+    handleTaskCompletion(job, result) {
+      this.$router.push({
+        path: '/type2/3D_result2',
+        query: { data: JSON.stringify(result), taskId: JSON.stringify(job.taskId), config: JSON.stringify(this.form) }
+      }).catch(() => {})
+    },
     web_socket() {
       const that = this
       if (typeof WebSocket === 'undefined') {
@@ -870,6 +879,7 @@ export default {
         onOpen: socket => {
           console.log('WebSocket connected')
           socket.send('from client: hello')
+          this.refreshTaskStatus()
         },
         onStatusChange: connected => {
           that.$data.wsp = !connected
@@ -891,30 +901,10 @@ export default {
             console.error('WebSocket 消息解析失败', error, e.data)
             return
           }
-        // 这里要做一个code的判断 一阶段
-        if (res.code == 20001 && res.data.taskId == that.$data.taskId) {
-        // if (res.code == 20001) {
-          var data = JSON.parse(res.data.result);
-          var taskId = res.data.taskId;
-          var config = that.$data.form;
-          that.$router.push({
-            path: '/type2/3D_result2',
-            query: {
-              data: JSON.stringify(data),
-              taskId: JSON.stringify(taskId),
-              config: JSON.stringify(config)
-            }
-          }) 
-        } else if (res.code == 0) {
-          that.$message({
-            message: res.message+"wb",
-            type: 'error',
-            duration: 5 * 1000
-          })
-          that.$data.loading = false;
-          that.$data.loading2 = false;
-          that.$data.dialogTableVisible = false;
-        }
+          // Ignore other tasks and stale payloads; query the committed state instead.
+          if (res.data && String(res.data.taskId) === String(this.taskId)) {
+            this.refreshTaskStatus()
+          }
         }
       })
 

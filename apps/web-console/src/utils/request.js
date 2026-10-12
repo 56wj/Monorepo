@@ -47,7 +47,7 @@ service.interceptors.response.use(
 
     // if the custom code is not 20000, it is judged as an error.
     if (res.code !== 20000) {
-      Message({
+      if (!response.config.silent) Message({
         message: res.message || 'Error',
         type: 'error',
         duration: 5 * 1000
@@ -74,12 +74,12 @@ service.interceptors.response.use(
   error => {
     // 这里应该根据401来清除过期token，并返回登录页
     console.log('err' + error) // for debug
-    Message({
+    if (!error.config || !error.config.silent) Message({
       message: error.message+"re",
       type: 'error',
       duration: 5 * 1000
     })
-    if (error.response.status == 401) {
+    if (error.response && error.response.status == 401) {
       MessageBox.confirm('你的登录已过期，请重新登录', {
         confirmButtonText: '重新登录',
         type: 'warning'

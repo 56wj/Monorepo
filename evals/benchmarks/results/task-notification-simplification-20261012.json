@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-12",
+  "backend": [
+    {
+      "suite": "cn.edu.hdu.packing_service.job.JobQueueServiceTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.edu.hdu.packing_service.observability.JobQueueMetricsTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.edu.hdu.packing_service.job.JobStatusTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.edu.hdu.packing_service.controller.TaskJobQueryTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.edu.hdu.packing_service.notification.TaskNotificationMigrationTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.edu.hdu.packing_service.job.JobResultHandlerTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.edu.hdu.packing_service.observability.TraceIdFilterTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.edu.hdu.packing_service.utils.PalletPackingConfigValidatorTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.edu.hdu.packing_service.job.WorkerTokenVerifierTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "cn.edu.hdu.packing_service.notification.TaskNotificationServiceTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "health": {
+    "status": "UP",
+    "groups": [
+      "liveness",
+      "readiness"
+    ]
+  },
+  "frontend": {
+    "total": 60,
+    "passed": 59,
+    "failed": 1,
+    "preexistingFailure": "utils/validate.spec.js: validUsername returns true for xxxx",
+    "focusedTestsPassed": 22,
+    "productionBuild": "passed",
+    "newCodeLint": "passed",
+    "browserSmoke": "not executed; browser tool approval quota exhausted"
+  },
+  "composeValidation": "passed",
+  "jarSha256": "0bc87297f8ccdbc0a0f5b473481a82adac74601b229740313633adfbe0fc6d9e",
+  "existingDatabaseModified": false
+}

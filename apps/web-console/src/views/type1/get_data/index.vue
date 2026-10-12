@@ -331,7 +331,7 @@
         </el-tab-pane>
         <div style="display: flex; justify-content: center;">
           <el-form-item label-width="0px">
-            <el-button type="success" @click="uploadData" :loading="loading" :disabled="wsp">{{ loading ?
+            <el-button type="success" @click="uploadData" :loading="loading">{{ loading ?
       '计算中 ...'
       : '开始计算'
               }}</el-button>
@@ -392,10 +392,13 @@ import { create_palletroll } from '@/api/rollPallet'
 import { get_task } from '@/api/external'
 import { heightCmToMm, validateOverlapConfig, validateOverlapHeightValue } from '@/utils/overlapValidation'
 import HistoricalOrderExportDialog from '@/components/HistoricalOrderExportDialog'
+import taskStatusTracking from '@/mixins/taskStatusTracking'
 import ReconnectingWebSocket, { buildWebSocketUrl } from '@/utils/reconnectingWebSocket'
 
 
 export default {
+  mixins: [taskStatusTracking],
+  taskJobTypes: ['PALLET_FIRST', 'PALLET_SECOND'],
   name: 'get_data',
   components: { HistoricalOrderExportDialog },
   data() {
@@ -649,7 +652,7 @@ export default {
         try {
           const res = await post_al_first(data);
           console.log(res)
-          this.$data.taskId = res.data;
+          this.trackTask(res.data, 'PALLET_FIRST');
         } catch (error) {
           this.$data.loading = false;
           console.log(error)
@@ -1076,10 +1079,24 @@ export default {
       try {
         const res = await post_al_second(data)
         console.log(res)
+        this.trackTask(this.taskId, 'PALLET_SECOND')
       } catch (error) {
         this.$data.loading2 = false;
         console.log(error)
         this.$message.error("二阶段提交失败，请重新提交")
+      }
+    },
+    handleTaskCompletion(job, result) {
+      if (job.jobType === 'PALLET_FIRST') {
+        if (!Array.isArray(result)) throw new Error('Invalid first-stage result')
+        this.dialog = result.map(item => ({ ...item, isEdit: false, isEdit2: false, isChanged: false, isNull: item.often_number == null }))
+        this.dialogTableVisible = true
+      } else {
+        this.dialogTableVisible = false
+        this.$router.push({
+          path: '/type1/3D_result',
+          query: { obj: JSON.stringify(result), taskId: JSON.stringify(job.taskId), config: JSON.stringify(this.form) }
+        }).catch(() => {})
       }
     },
     web_socket() {
@@ -1100,6 +1117,7 @@ export default {
         onOpen: socket => {
           console.log('WebSocket connected')
           socket.send('from client: hello')
+          this.refreshTaskStatus()
         },
         onStatusChange: connected => {
           that.$data.wsp = !connected
@@ -1121,44 +1139,10 @@ export default {
             console.error('WebSocket 消息解析失败', error, e.data)
             return
           }
-        // 这里要做一个code的判断 一阶段
-        if (res.code == 10001 && res.data.taskId == that.$data.taskId) {
-          var data = JSON.parse(res.data.result);
-          that.$data.dialog = data;
-          that.$data.dialog.forEach((res) => {
-            Object.assign(res, { isEdit: false, isEdit2: false, isChanged: false, isNull: false });
-            if(res.often_number==null){
-              res.isNull = true;
-            }
-          })
-          that.$data.dialogTableVisible = true;
-        } else if(res.code == 10002 && res.data.taskId == that.$data.taskId) {
-          that.$data.loading = false;
-          that.$data.loading2 = false;
-          that.$data.dialogTableVisible = false;
-          var obj = JSON.parse(res.data.result);
-          var taskId = res.data.taskId;
-          var config = that.$data.form;
-          console.log(obj)
-          // console.log(arr)
-          that.$router.push({
-            path: '/type1/3D_result',
-            query: {
-              obj: JSON.stringify(obj),
-              taskId: JSON.stringify(taskId),
-              config: JSON.stringify(config)
-            }
-          }) // 带参跳转
-        } else if(res.code != 10001 && res.code != 10002) {
-          that.$message({
-            message: res.message+"wb",
-            type: 'error',
-            duration: 5 * 1000
-          })
-          that.$data.loading = false;
-          that.$data.loading2 = false;
-          that.$data.dialogTableVisible = false;
-        }
+          // Ignore other tasks and stale payloads; query the committed state instead.
+          if (res.data && String(res.data.taskId) === String(this.taskId)) {
+            this.refreshTaskStatus()
+          }
         }
       })
 

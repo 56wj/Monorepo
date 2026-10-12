@@ -1,6 +1,6 @@
 # M4+ production backend roadmap
 
-Status: In progress - Transactional Outbox slice delivered
+Status: In progress - state-based task recovery delivered
 
 ## 1. Current baseline and the next real bottleneck
 
@@ -19,9 +19,9 @@ four concrete gaps in the current execution path:
    the legacy task. `services/solution-validator` is still only a reserved
    directory, so a syntactically valid but infeasible packing plan can become a
    business result.
-3. `JobResultHandler` sends WebSocket messages directly from the completion
-   transaction. Offline users lose the event, and a process crash between the
-   database commit and notification cannot be replayed.
+3. Task notifications are best effort after commit. HTTP state/result polling
+   now handles offline clients, page reloads and missed hints. Per-event delivery
+   and replay are deliberately not product requirements.
 4. Source, intermediate and result artifacts are represented as local paths.
    This prevents stateless control-plane replicas and makes retention,
    integrity and access control difficult.
@@ -31,7 +31,7 @@ four concrete gaps in the current execution path:
 | Priority | Milestone | Backend knowledge | Why it is worth doing now |
 | --- | --- | --- | --- |
 | P0 | Deterministic input snapshot + independent solution validation | immutable snapshots, canonical JSON, content hashing, validation state machine, trust boundaries | Most domain-specific improvement; fixes retry reproducibility and prevents invalid plans from becoming business results |
-| Delivered | Transactional Outbox + replayable task event stream | local transaction, at-least-once delivery, idempotent consumer, retry/DLQ, cursor replay | The job completion path now persists and dispatches durable user events |
+| Delivered | State-based task recovery | transaction commit hooks, bounded executor, authenticated status queries, frontend polling | Keeps computation durable without a separate notification delivery subsystem |
 | P0 | Object storage abstraction | S3/MinIO, presigned URL, SHA-256, metadata transaction, lifecycle/retention | Removes node-local state and enables horizontal control-plane/Worker scaling |
 | P1 | Security and tenant boundary | Spring Security, password migration, RBAC, refresh-token rotation, tenant row isolation, audit log | Current MD5 password and interceptor-based authorization are not a production boundary |
 | P1 | Contract and error governance | typed DTO, runtime JSON Schema, OpenAPI, RFC 7807-style errors, compatibility tests | Replaces `Map<String,Object>` and opaque result strings with evolvable APIs |
@@ -123,39 +123,24 @@ control plane persists the report before exposing a final result.
 > typed violation reports and prevented infeasible Worker output from entering
 > the business result path.
 
-## 4. Delivered: Transactional Outbox and reconnectable progress
+## 4. Delivered: state-based task recovery
 
-### 4.1 Data model
+The completion transaction persists task and job results. After commit, a
+bounded executor attempts a WebSocket hint containing only the task ID. The
+browser queries the authenticated job endpoint immediately on submission,
+notification and reconnect, and otherwise every five seconds while active.
+Terminal states stop polling. Transient failures back off; authentication and
+not-found responses stop polling. URL task/stage parameters restore tracking.
 
-Create `packing_outbox_event` in the same MySQL transaction that updates the
-task and `packing_job`:
+Acceptance criteria:
 
-```text
-event_id, aggregate_type, aggregate_id, event_type, tenant_id, user_id,
-trace_id, payload_json, status, attempt, available_at, lease_token,
-lease_expires_at, published_at, created_at
-```
+- Rollback never notifies; notifications start only after successful commit.
+- Notification failure/executor saturation does not fail a committed callback.
+- No WebSocket delivery is required to recover a result or terminal failure.
+- Repeated hints and old in-flight responses do not duplicate UI transitions.
+- Task ownership is checked before returning job output and configuration.
 
-Use `FOR UPDATE SKIP LOCKED` to let multiple dispatchers claim events. Delivery
-is at-least-once, so every event has a stable `event_id`; WebSocket/SSE clients
-deduplicate by that ID and reconnect with a last-seen cursor. A polling task
-history endpoint remains the source of truth.
-
-### 4.2 Acceptance criteria
-
-- Crash before commit: neither business update nor event exists.
-- Crash after commit and before send: dispatcher later publishes the event.
-- Crash after send and before acknowledgement: the same `event_id` may be sent
-  again and is deduplicated by the client/consumer.
-- Retry uses exponential backoff and terminal delivery failures enter an Outbox
-  DLQ with an operator replay endpoint and audit record.
-- Metrics cover backlog, oldest-event age, publish latency, retry and DLQ count.
-
-### 4.3 Resume evidence after measurement
-
-> Replaced database/WebSocket dual writes with a MySQL Transactional Outbox and
-> leased multi-replica dispatcher, providing replayable at-least-once task events,
-> idempotent consumption, exponential retry and DLQ operations.
+See `m4-task-status-notifications.md` for migration and verification.
 
 ## 5. M6: object storage and artifact lifecycle
 
@@ -207,19 +192,17 @@ Resume evidence:
 
 ### Verification
 
-- Run MySQL queue/Outbox integration tests with Testcontainers in CI.
+- Run MySQL job-queue integration tests with Testcontainers in CI.
 - Add property-based tests for geometry invariants and metamorphic tests such as
   permutation invariance and monotonicity under larger capacity.
 - Extend fault injection to database restart, Worker SIGKILL, validator timeout,
-  object-store timeout and dispatcher crash.
+  object-store timeout and missed WebSocket notifications.
 - Promote only when p95/p99, error ratio, validation failure ratio, backlog age
   and recovery-time SLOs pass against the same synthetic workload.
 
 ## 7. What not to add yet
 
-- Do not add Kafka solely to make the architecture look distributed. The MySQL
-  Outbox is enough until measured event throughput, fan-out or retention needs
-  justify a broker.
+- Task state is authoritative. Add a broker only for measured downstream event delivery requirements, not for UI refresh.
 - Do not add Redis in front of the durable queue. It creates two sources of truth
   without solving the current reproducibility or correctness gaps.
 - Do not split more microservices before object storage, contracts and tracing
@@ -230,7 +213,7 @@ Resume evidence:
 
 ## 8. Recommended implementation order
 
-1. Transactional Outbox and cursor replay - delivered in M4.
+1. State-based task recovery and post-commit notifications - delivered in M4.
 2. Add `SolverInputEnvelopeV2`, snapshot mutable specifications at submission
    and prove deterministic retry.
 3. Implement the standalone validator and gate `SUCCEEDED` on its report.

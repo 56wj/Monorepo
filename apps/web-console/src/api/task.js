@@ -46,3 +46,12 @@ export function get_latestTask2() {
     method: 'get'
   })
 }
+
+export function getTaskJob(taskId) {
+  return request({
+    url: '/task/job',
+    method: 'get',
+    params: { taskId, includeResult: true },
+    silent: true
+  })
+}

@@ -2,6 +2,7 @@ package cn.edu.hdu.packing_service.job.dto;
 
 import cn.edu.hdu.packing_service.job.PackingJob;
 import lombok.AllArgsConstructor;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -22,9 +23,13 @@ public class JobView {
     private LocalDateTime startedAt;
     private LocalDateTime finishedAt;
 
+    // Only populated on the authenticated task endpoint when includeResult=true.
+    private JsonNode output;
+    private JsonNode config;
+
     public static JobView from(PackingJob job) {
         return new JobView(job.getPublicId(), job.getTraceId(), job.getTaskId(), job.getJobType(), job.getStatus(),
                 job.getAttempt(), job.getMaxAttempts(), job.getErrorCode(), job.getErrorMessage(),
-                job.getCreatedAt(), job.getStartedAt(), job.getFinishedAt());
+                job.getCreatedAt(), job.getStartedAt(), job.getFinishedAt(), null, null);
     }
 }

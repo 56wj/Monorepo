@@ -159,6 +159,15 @@ public class JobQueueService {
         }
     }
 
+    public JsonNode result(PackingJob job) {
+        if (job.statusEnum() != JobStatus.SUCCEEDED || job.getResultJson() == null) return null;
+        try {
+            return objectMapper.readTree(job.getResultJson());
+        } catch (JsonProcessingException error) {
+            throw new IllegalStateException("stored job result is invalid JSON", error);
+        }
+    }
+
     int retryDelaySeconds(int attempt) {
         int exponent = Math.max(0, Math.min(attempt - 1, 10));
         long delay = (long) properties.getRetryBaseSeconds() * (1L << exponent);

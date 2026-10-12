@@ -1,12 +1,10 @@
 package cn.edu.hdu.packing_service.job;
 
 import cn.edu.hdu.packing_service.config.PythonExecuteConfig;
-import cn.edu.hdu.packing_service.constant.StatusCodes;
 import cn.edu.hdu.packing_service.mapper.PalletPackingMapper;
 import cn.edu.hdu.packing_service.mapper.SuspendMapper;
 import cn.edu.hdu.packing_service.mapper.TaskMapper;
-import cn.edu.hdu.packing_service.outbox.OutboxService;
-import cn.edu.hdu.packing_service.pojo.Result;
+import cn.edu.hdu.packing_service.notification.TaskNotificationService;
 import cn.edu.hdu.packing_service.pojo.Task;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
@@ -17,8 +15,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -27,18 +23,18 @@ public class JobResultHandler {
     private final SuspendMapper suspendMapper;
     private final TaskMapper taskMapper;
     private final PythonExecuteConfig pythonExecuteConfig;
-    private final OutboxService outboxService;
+    private final TaskNotificationService notifications;
 
     public JobResultHandler(PalletPackingMapper palletPackingMapper,
                             SuspendMapper suspendMapper,
                             TaskMapper taskMapper,
                             PythonExecuteConfig pythonExecuteConfig,
-                            OutboxService outboxService) {
+                            TaskNotificationService notifications) {
         this.palletPackingMapper = palletPackingMapper;
         this.suspendMapper = suspendMapper;
         this.taskMapper = taskMapper;
         this.pythonExecuteConfig = pythonExecuteConfig;
-        this.outboxService = outboxService;
+        this.notifications = notifications;
     }
 
     public void handleSuccess(PackingJob job, JsonNode output) {
@@ -51,50 +47,28 @@ public class JobResultHandler {
         switch (job.typeEnum()) {
             case PALLET_FIRST:
                 palletPackingMapper.updateFirst(job.getTaskId(), result);
-                enqueue(job, task, "PALLET_FIRST_COMPLETED",
-                        StatusCodes.PALLET_FIRST_CODE, "小托结果返回", result);
                 break;
             case PALLET_SECOND:
                 String palletResultPath = writeResultAtomically(result);
                 String resultExcel = optionalText(output, "resultExcel");
                 palletPackingMapper.updateTask(job.getTaskId(), palletResultPath, resultExcel);
-                enqueue(job, task, "PALLET_SECOND_COMPLETED",
-                        StatusCodes.PALLET_SECOND_CODE, "最终结果返回", result);
                 break;
             case SUSPEND_FIRST:
                 String suspendResultPath = writeResultAtomically(result);
                 suspendMapper.updateTask(job.getTaskId(), suspendResultPath);
-                enqueue(job, task, "SUSPEND_FIRST_COMPLETED",
-                        StatusCodes.SUSPEND_FIRST_CODE, "悬空结果返回", result);
                 break;
             default:
                 throw new IllegalArgumentException("unsupported job type: " + job.getJobType());
         }
+        notifications.notifyAfterCommit(String.valueOf(task.getCreateUser()), task.getId());
     }
 
     public void handleTerminalFailure(PackingJob job, String errorMessage) {
         taskMapper.updateExecutionState(job.getTaskId(), "计算失败");
         Task task = taskMapper.findTaskById(job.getTaskId());
         if (task != null) {
-            Map<String, Object> data = new HashMap<>();
-            data.put("taskId", task.getId());
-            data.put("errorMessage", truncate(errorMessage, 160));
-            outboxService.enqueueTaskEvent(job, String.valueOf(task.getCreateUser()),
-                    "PACKING_JOB_FAILED", new Result<>(0, "计算失败", data));
+            notifications.notifyAfterCommit(String.valueOf(task.getCreateUser()), task.getId());
         }
-    }
-
-    private void enqueue(PackingJob job,
-                         Task task,
-                         String eventType,
-                         int code,
-                         String message,
-                         String result) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("taskId", task.getId());
-        response.put("result", result);
-        outboxService.enqueueTaskEvent(job, String.valueOf(task.getCreateUser()), eventType,
-                Result.success(code, message, response));
     }
 
     private String writeResultAtomically(String result) {
@@ -128,8 +102,4 @@ public class JobResultHandler {
         return value == null || value.isNull() ? null : value.asText();
     }
 
-    private String truncate(String value, int limit) {
-        if (value == null) return "unknown error";
-        return value.length() <= limit ? value : value.substring(0, limit);
-    }
 }

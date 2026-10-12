@@ -4,78 +4,77 @@ import cn.edu.hdu.packing_service.config.PythonExecuteConfig;
 import cn.edu.hdu.packing_service.mapper.PalletPackingMapper;
 import cn.edu.hdu.packing_service.mapper.SuspendMapper;
 import cn.edu.hdu.packing_service.mapper.TaskMapper;
-import cn.edu.hdu.packing_service.outbox.OutboxService;
-import cn.edu.hdu.packing_service.pojo.Result;
+import cn.edu.hdu.packing_service.notification.TaskNotificationService;
 import cn.edu.hdu.packing_service.pojo.Task;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 
-import java.util.Map;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 class JobResultHandlerTest {
+    @TempDir Path directory;
+    private final PalletPackingMapper pallet = mock(PalletPackingMapper.class);
+    private final SuspendMapper suspend = mock(SuspendMapper.class);
+    private final TaskMapper tasks = mock(TaskMapper.class);
+    private final TaskNotificationService notifications = mock(TaskNotificationService.class);
+    private final ObjectMapper json = new ObjectMapper();
 
     @Test
-    void successfulBusinessUpdateEnqueuesDurableEventInsteadOfSendingInline() throws Exception {
-        PalletPackingMapper palletMapper = mock(PalletPackingMapper.class);
-        SuspendMapper suspendMapper = mock(SuspendMapper.class);
-        TaskMapper taskMapper = mock(TaskMapper.class);
-        OutboxService outboxService = mock(OutboxService.class);
-        Task task = task();
-        when(taskMapper.findTaskById(42)).thenReturn(task);
-        JobResultHandler handler = new JobResultHandler(palletMapper, suspendMapper, taskMapper,
-                mock(PythonExecuteConfig.class), outboxService);
-        PackingJob job = job(JobType.PALLET_FIRST);
-
-        handler.handleSuccess(job, new ObjectMapper().readTree("{\"result\":\"{\\\"ok\\\":true}\"}"));
-
-        verify(palletMapper).updateFirst(42, "{\"ok\":true}");
-        ArgumentCaptor<Result> notification = ArgumentCaptor.forClass(Result.class);
-        verify(outboxService).enqueueTaskEvent(eq(job), eq("9"),
-                eq("PALLET_FIRST_COMPLETED"), notification.capture());
-        Map<?, ?> data = (Map<?, ?>) notification.getValue().getData();
-        assertEquals(42, data.get("taskId"));
-        assertEquals("{\"ok\":true}", data.get("result"));
+    void firstStagePersistsResultAndRegistersCommitHint() throws Exception {
+        handler().handleSuccess(job(JobType.PALLET_FIRST), json.readTree("{\"result\":\"[]\"}"));
+        verify(pallet).updateFirst(42, "[]");
+        verify(notifications).notifyAfterCommit("9", 42);
     }
 
     @Test
-    void terminalFailureUpdatesTaskAndEnqueuesDurableFailureEvent() {
-        PalletPackingMapper palletMapper = mock(PalletPackingMapper.class);
-        SuspendMapper suspendMapper = mock(SuspendMapper.class);
-        TaskMapper taskMapper = mock(TaskMapper.class);
-        OutboxService outboxService = mock(OutboxService.class);
-        when(taskMapper.findTaskById(42)).thenReturn(task());
-        JobResultHandler handler = new JobResultHandler(palletMapper, suspendMapper, taskMapper,
-                mock(PythonExecuteConfig.class), outboxService);
-        PackingJob job = job(JobType.PALLET_SECOND);
+    void secondStagePersistsFileAndRegistersCommitHint() throws Exception {
+        handler().handleSuccess(job(JobType.PALLET_SECOND), json.readTree("{\"result\":{},\"resultExcel\":\"report.xlsx\"}"));
+        ArgumentCaptor<String> path = ArgumentCaptor.forClass(String.class);
+        verify(pallet).updateTask(eq(42), path.capture(), eq("report.xlsx"));
+        assertEquals("{}", new String(Files.readAllBytes(Paths.get(path.getValue())), StandardCharsets.UTF_8));
+        verify(notifications).notifyAfterCommit("9", 42);
+    }
 
-        handler.handleTerminalFailure(job, "solver failed");
+    @Test
+    void suspendPersistsResultAndRegistersCommitHint() throws Exception {
+        handler().handleSuccess(job(JobType.SUSPEND_FIRST), json.readTree("{\"result\":{}}"));
+        verify(suspend).updateTask(eq(42), anyString());
+        verify(notifications).notifyAfterCommit("9", 42);
+    }
 
-        verify(taskMapper).updateExecutionState(42, "计算失败");
-        verify(outboxService).enqueueTaskEvent(eq(job), eq("9"),
-                eq("PACKING_JOB_FAILED"), any(Result.class));
+    @Test
+    void terminalFailureUpdatesTaskAndRegistersCommitHint() {
+        handler().handleTerminalFailure(job(JobType.PALLET_SECOND), "solver failed");
+        verify(tasks).updateExecutionState(42, "计算失败");
+        verify(notifications).notifyAfterCommit("9", 42);
+    }
+
+    @Test
+    void invalidResultDoesNotNotify() throws Exception {
+        JobResultHandler handler = handler();
+        assertThrows(IllegalArgumentException.class, () -> handler.handleSuccess(job(JobType.PALLET_FIRST), json.readTree("{}")));
+        verifyNoInteractions(notifications);
+    }
+
+    private JobResultHandler handler() {
+        Task task = new Task(); task.setId(42); task.setCreateUser(9);
+        when(tasks.findTaskById(42)).thenReturn(task);
+        PythonExecuteConfig config = mock(PythonExecuteConfig.class);
+        when(config.getResult_save_path()).thenReturn(directory.toString());
+        return new JobResultHandler(pallet, suspend, tasks, config, notifications);
     }
 
     private PackingJob job(JobType type) {
-        PackingJob job = new PackingJob();
-        job.setPublicId("job-public-1");
-        job.setTraceId("trace-12345678");
-        job.setTaskId(42);
-        job.setJobType(type.name());
+        PackingJob job = new PackingJob(); job.setTaskId(42); job.setJobType(type.name());
         return job;
-    }
-
-    private Task task() {
-        Task task = new Task();
-        task.setId(42);
-        task.setCreateUser(9);
-        return task;
     }
 }

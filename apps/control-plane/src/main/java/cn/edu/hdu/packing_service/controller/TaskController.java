@@ -3,6 +3,10 @@ package cn.edu.hdu.packing_service.controller;
 
 import cn.edu.hdu.packing_service.pojo.PageBean;
 import cn.edu.hdu.packing_service.job.JobQueueService;
+import cn.edu.hdu.packing_service.job.JobType;
+import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import cn.edu.hdu.packing_service.job.PackingJob;
 import cn.edu.hdu.packing_service.job.dto.JobView;
 import cn.edu.hdu.packing_service.pojo.Result;
@@ -138,17 +142,27 @@ public class TaskController {
     }
 
     @GetMapping("/job")
-    public Result<JobView> job(Integer taskId) {
+    public Result<JobView> job(@RequestParam Integer taskId,
+                               @RequestParam(defaultValue = "false") boolean includeResult) {
         Task task = taskService.findById(taskId);
-        if (task == null) return Result.error("任务不存在");
+        if (task == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "任务不存在");
 
         Map<String, Object> claims = ThreadLocalUtil.get();
-        Integer currentUser = (Integer) claims.get("id");
-        if (!task.getCreateUser().equals(currentUser)) return Result.error("任务不存在");
+        Object currentUser = claims == null ? null : claims.get("id");
+        if (currentUser == null || task.getCreateUser() == null ||
+                !String.valueOf(task.getCreateUser()).equals(String.valueOf(currentUser))) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "任务不存在");
+        }
 
         PackingJob job = jobQueueService.findLatestByTaskId(taskId);
-        if (job == null) return Result.error("任务尚未进入计算队列");
-        return Result.success(JobView.from(job));
+        if (job == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "任务尚未进入计算队列");
+        JobView view = JobView.from(job);
+        if (includeResult) {
+            view.setOutput(jobQueueService.result(job));
+            JsonNode payload = jobQueueService.payload(job);
+            view.setConfig(payload.path(job.typeEnum() == JobType.PALLET_SECOND ? "sourceJson" : "data").path("config"));
+        }
+        return Result.success(view);
     }
 
 
